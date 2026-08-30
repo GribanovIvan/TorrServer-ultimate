@@ -308,6 +308,29 @@ func (t *Torrent) Close() bool {
 	return true
 }
 
+// The server streams one torrent at a time: starting playback closes every
+// other in-memory torrent so its RAM cache and peer connections are freed
+// for the new stream. Saved DB records are not touched.
+func (t *Torrent) dropOthers() {
+	if t == nil || t.bt == nil || t.TorrentSpec == nil {
+		return
+	}
+	for hash, torr := range t.bt.ListTorrents() {
+		if hash == t.TorrentSpec.InfoHash {
+			continue
+		}
+		log.TLogln("closing previous torrent:", hash.HexString())
+		closed := torr.closed
+		if torr.Close() {
+			select {
+			case <-closed:
+			case <-time.After(3 * time.Second):
+				log.TLogln("timeout waiting for previous torrent close:", hash.HexString())
+			}
+		}
+	}
+}
+
 func (t *Torrent) Status() *state.TorrentStatus {
 	t.muTorrent.Lock()
 	defer t.muTorrent.Unlock()

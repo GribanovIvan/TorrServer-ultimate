@@ -40,6 +40,8 @@ func (t *Torrent) Preload(index int, size int64) {
 	t.Stat = state.TorrentPreload
 	t.muTorrent.Unlock()
 
+	t.dropOthers()
+
 	defer func() {
 		t.muTorrent.Lock()
 		if t.Stat == state.TorrentPreload {

@@ -160,6 +160,22 @@ func (r *Reader) getOffsetRange() (int64, int64) {
 	return beginOffset, endOffset
 }
 
+func (r *Reader) getResumeRange() Range {
+	keep := int64(32 << 20)
+	if keep > r.cache.capacity {
+		keep = r.cache.capacity
+	}
+	start := r.offset - keep/4
+	if start < 0 {
+		start = 0
+	}
+	end := r.offset + keep
+	if end > r.file.Length() {
+		end = r.file.Length()
+	}
+	return Range{r.getPieceNum(start), r.getPieceNum(end), r.file}
+}
+
 func (r *Reader) checkReader() {
 	if time.Now().Unix() > r.lastAccess+60 && r.cache.Readers() > 1 {
 		r.readerOff()

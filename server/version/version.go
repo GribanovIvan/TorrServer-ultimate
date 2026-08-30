@@ -5,8 +5,11 @@ import (
 	"runtime/debug"
 )
 
-// Version is set at build time via -ldflags "-X server/version.Version=<tag>"
-var Version = "MatriX.144"
+// Version can be overridden at build time via -ldflags "-X server/version.Version=<tag>"
+// Client apps detect server capabilities by finding "MatriX" in this string
+// and reading the first number; without the token they fall back to a legacy
+// protocol mode. Keep the "MatriX.<n>" shape in any rename.
+var Version = "MatriX.200-Tommix"
 
 func GetTorrentVersion() string {
 	bi, ok := debug.ReadBuildInfo()

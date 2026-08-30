@@ -26,7 +26,7 @@ var dmsServer *dms.Server
 func Start() {
 	logger := log.Default.WithNames("dlna")
 	dmsServer = &dms.Server{
-		Logger: logger.WithNames("dms", "server"),
+		Logger: logger.WithNames("dms", "server").Slogger(),
 		Interfaces: func() (ifs []net.Interface) {
 			var err error
 			ifaces, err := anet.Interfaces()

@@ -49,6 +49,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.NotFound(resp, req)
 		return errors.New("torrent doesn't have info yet")
 	}
+
+	t.dropOthers()
+
 	// Get file information
 	st := t.Status()
 	var stFile *state.TorrentFileStat

@@ -129,7 +129,7 @@ func SetBTSets(sets *BTSets) {
 		sets.CacheSize = 64 * 1024 * 1024
 	}
 	if sets.ConnectionsLimit == 0 {
-		sets.ConnectionsLimit = 25
+		sets.ConnectionsLimit = 40
 	}
 	if sets.TorrentDisconnectTimeout == 0 {
 		sets.TorrentDisconnectTimeout = 30
@@ -183,7 +183,7 @@ func SetDefaultConfig() {
 	sets := new(BTSets)
 	sets.CacheSize = 64 * 1024 * 1024 // 64 MB
 	sets.PreloadCache = 50
-	sets.ConnectionsLimit = 25
+	sets.ConnectionsLimit = 40
 	sets.RetrackersMode = 1
 	sets.TrackersListURL = DefaultTrackersListURL
 	sets.DefaultTrackers = DefaultTrackersText

@@ -24,7 +24,7 @@ type Cache struct {
 	storage *Storage
 
 	capacity int64
-	filled   int64
+	filled   atomic.Int64
 	hash     metainfo.Hash
 
 	pieceLength int64
@@ -45,17 +45,25 @@ type Cache struct {
 	// muPrio serializes clearPriority and setLoadPriority so that the priority
 	// reset of a reader that has just closed cannot wipe the priorities a
 	// freshly created reader has already set.
-	muPrio  sync.Mutex
-	torrent *torrent.Torrent
+	muPrio sync.Mutex
+	// prioritized tracks piece ids this cache has set a priority on (guarded by
+	// muPrio). Every SetPriority/PieceState call takes the anacrolix client
+	// lock - the same lock all peer traffic serializes on - so priority resets
+	// must touch only these pieces, never the whole torrent.
+	prioritized map[int]struct{}
+	lastClean   atomic.Int64
+	lastGC      atomic.Int64
+	buffPool    sync.Pool
+	torrent     *torrent.Torrent
 }
 
 func NewCache(capacity int64, storage *Storage) *Cache {
 	ret := &Cache{
-		capacity: capacity,
-		filled:   0,
-		pieces:   make(map[int]*Piece),
-		storage:  storage,
-		readers:  make(map[*Reader]struct{}),
+		capacity:    capacity,
+		pieces:      make(map[int]*Piece),
+		storage:     storage,
+		readers:     make(map[*Reader]struct{}),
+		prioritized: make(map[int]struct{}),
 	}
 
 	return ret
@@ -112,6 +120,24 @@ func (c *Cache) priorityWatchdog() {
 
 func (c *Cache) SetTorrent(torr *torrent.Torrent) {
 	c.torrent = torr
+}
+
+// getPieceBuffer reuses released piece buffers to avoid multi-MB allocations
+// on every piece, which causes GC stalls on low-RAM devices. Buffers are
+// zeroed on reuse so responsive-mode reads of partially written pieces see
+// the same zero bytes a fresh allocation would give.
+func (c *Cache) getPieceBuffer() []byte {
+	if buf, ok := c.buffPool.Get().([]byte); ok && int64(len(buf)) == c.pieceLength {
+		clear(buf)
+		return buf
+	}
+	return make([]byte, c.pieceLength)
+}
+
+func (c *Cache) putPieceBuffer(buf []byte) {
+	if int64(len(buf)) == c.pieceLength {
+		c.buffPool.Put(buf)
+	}
 }
 
 func (c *Cache) getPieces() map[int]*Piece {
@@ -184,8 +210,15 @@ func (c *Cache) AdjustRA(readahead int64) {
 	if settings.BTsets.CacheSize == 0 {
 		c.capacity = readahead * 3
 	}
+	if readahead > c.capacity {
+		readahead = c.capacity
+	}
+	// Called every second per torrent; SetReadahead takes the anacrolix
+	// reader lock, so skip readers already at the requested value.
 	for _, r := range c.readersSnapshot() {
-		r.SetReadahead(readahead)
+		if r.Readahead() != readahead {
+			r.SetReadahead(readahead)
+		}
 	}
 }
 
@@ -220,7 +253,7 @@ func (c *Cache) GetState() *state.CacheState {
 		})
 	}
 
-	c.filled = fill
+	c.filled.Store(fill)
 	cState.Capacity = c.capacity
 	cState.PiecesLength = c.pieceLength
 	cState.PiecesCount = c.pieceCount
@@ -236,6 +269,14 @@ func (c *Cache) cleanPieces() {
 		return
 	}
 
+	// Piece reads and writes trigger this many times per second; a full pass
+	// is only needed immediately when the cache is over capacity, otherwise
+	// rate-limit it to keep client-lock pressure off the download path.
+	now := time.Now().UnixMilli()
+	if now-c.lastClean.Load() < 500 && c.filled.Load() <= c.capacity {
+		return
+	}
+
 	// Protection against concurrent deletion
 	if !c.muRemove.TryLock() {
 		return // Cleanup is already in progress in another goroutine
@@ -244,33 +285,58 @@ func (c *Cache) cleanPieces() {
 
 	c.isRemove.Store(true)
 	defer func() { c.isRemove.Store(false) }()
+	c.lastClean.Store(now)
 
 	remPieces := c.getRemPieces()
-	if c.filled > c.capacity {
-		rems := (c.filled-c.capacity)/c.pieceLength + 1
+	filled := c.filled.Load()
+	if filled > c.capacity {
+		rems := (filled-c.capacity)/c.pieceLength + 1
 		for _, p := range remPieces {
 			c.removePiece(p)
 			rems--
 			if rems <= 0 {
-				utils.FreeOSMemGC()
+				c.freeMemRateLimited()
 				return
 			}
 		}
 	}
 }
 
+// Forced GC is two stop-the-world passes and takes hundreds of milliseconds
+// on weak ARM CPUs; evictions run up to twice a second while streaming, so
+// return memory to the OS at most every 30 seconds. In between, the Go
+// background scavenger still releases free pages gradually.
+func (c *Cache) freeMemRateLimited() {
+	now := time.Now().Unix()
+	last := c.lastGC.Load()
+	if now-last >= 30 && c.lastGC.CompareAndSwap(last, now) {
+		utils.FreeOSMemGC()
+	}
+}
+
 func (c *Cache) getRemPieces() []*Piece {
 	readers := c.readersSnapshot()
 
-	// Collect read ranges from active readers
+	// Active readers drive downloads; idle readers (e.g. a paused player that
+	// stopped reading the stream) still keep their offset, so their windows
+	// must stay cached or resume starts from a cold cache and stalls.
 	ranges := make([]Range, 0)
+	keepRanges := make([]Range, 0)
 	for _, r := range readers {
 		r.checkReader()
 		if r.isUse {
-			ranges = append(ranges, r.getPiecesRange())
+			rng := r.getPiecesRange()
+			ranges = append(ranges, rng)
+			keepRanges = append(keepRanges, rng)
+		} else {
+			// An idle reader keeps only a small resume window; its full
+			// cache-sized range would let every stale player connection pin
+			// CacheSize bytes in RAM, blowing past the configured limit.
+			keepRanges = append(keepRanges, r.getResumeRange())
 		}
 	}
 	ranges = mergeRange(ranges)
+	keepRanges = mergeRange(keepRanges)
 
 	piecesRemove := make([]*Piece, 0)
 	fill := int64(0)
@@ -280,15 +346,15 @@ func (c *Cache) getRemPieces() []*Piece {
 		if p.Size > 0 {
 			fill += p.Size
 		}
-		if len(ranges) > 0 {
-			if !inRanges(ranges, id) {
-				if p.Size > 0 && !c.isIdInFileBE(ranges, id) {
+		if len(keepRanges) > 0 {
+			if !inRanges(keepRanges, id) {
+				if p.Size > 0 && !c.isIdInFileBE(keepRanges, id) {
 					piecesRemove = append(piecesRemove, p)
 				}
 			}
 		} else {
 			// When preloading, clear everything except the beginning and end of the file
-			if p.Size > 0 && !c.isIdInFileBE(ranges, id) {
+			if p.Size > 0 && !c.isIdInFileBE(keepRanges, id) {
 				piecesRemove = append(piecesRemove, p)
 			}
 		}
@@ -302,7 +368,7 @@ func (c *Cache) getRemPieces() []*Piece {
 		return piecesRemove[i].Accessed < piecesRemove[j].Accessed
 	})
 
-	c.filled = fill
+	c.filled.Store(fill)
 	return piecesRemove
 }
 
@@ -324,7 +390,10 @@ func (c *Cache) setLoadPriority(ranges []Range) {
 		readerPos := r.getReaderPiece()
 		readerRAHPos := r.getReaderRAHPiece()
 		end := r.getPiecesRange().End
-		count := settings.BTsets.ConnectionsLimit / len(readers) // max concurrent loading blocks
+		// Pipeline as many pieces as the reader's share of the cache window can
+		// hold - the window itself bounds memory use, so a piece-count cap tied
+		// to ConnectionsLimit only starves peers of outstanding requests.
+		count := int(c.capacity/c.pieceLength)/len(readers) + 1
 		limit := 0
 		for i := readerPos; i < end && limit < count; i++ {
 			if !pieces[i].Complete {
@@ -339,6 +408,7 @@ func (c *Cache) setLoadPriority(ranges []Range) {
 				} else if i > readerRAHPos+5 && c.torrent.PieceState(i).Priority != torrent.PiecePriorityNormal {
 					c.torrent.Piece(i).SetPriority(torrent.PiecePriorityNormal)
 				}
+				c.prioritized[i] = struct{}{}
 				limit++
 			}
 		}
@@ -426,17 +496,13 @@ func (c *Cache) clearPriority() {
 	}
 	ranges = mergeRange(ranges)
 
-	for id := range c.getPieces() {
-		if len(ranges) > 0 {
-			if !inRanges(ranges, id) {
-				if c.torrent.PieceState(id).Priority != torrent.PiecePriorityNone {
-					c.torrent.Piece(id).SetPriority(torrent.PiecePriorityNone)
-				}
-			}
-		} else {
-			if c.torrent.PieceState(id).Priority != torrent.PiecePriorityNone {
-				c.torrent.Piece(id).SetPriority(torrent.PiecePriorityNone)
-			}
+	// Only pieces this cache prioritized need resetting; anything else is
+	// already at PiecePriorityNone, and touching it would take the client
+	// lock once per piece across the whole torrent.
+	for id := range c.prioritized {
+		if !inRanges(ranges, id) {
+			c.torrent.Piece(id).SetPriority(torrent.PiecePriorityNone)
+			delete(c.prioritized, id)
 		}
 	}
 }
