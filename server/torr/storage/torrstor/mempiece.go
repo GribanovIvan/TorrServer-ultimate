@@ -22,7 +22,9 @@ func (p *MemPiece) WriteAt(b []byte, off int64) (n int, err error) {
 	defer p.mu.Unlock()
 
 	if p.buffer == nil {
-		go p.piece.cache.cleanPieces()
+		if p.piece.cache.cleanDue() {
+			go p.piece.cache.cleanPieces()
+		}
 		p.buffer = p.piece.cache.getPieceBuffer()
 	}
 	n = copy(p.buffer[off:], b[:])
@@ -50,7 +52,7 @@ func (p *MemPiece) ReadAt(b []byte, off int64) (n int, err error) {
 	}
 	n = copy(b, p.buffer[int(off) : int(off)+size][:])
 	p.piece.Accessed = time.Now().Unix()
-	if int64(len(b))+off >= p.piece.Size {
+	if int64(len(b))+off >= p.piece.Size && p.piece.cache.cleanDue() {
 		go p.piece.cache.cleanPieces()
 	}
 	if n == 0 {

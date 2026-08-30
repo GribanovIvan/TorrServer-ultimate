@@ -116,6 +116,7 @@ func (t *Torrent) WaitInfo() bool {
 
 	// Close torrent if no info in 1 minute + TorrentDisconnectTimeout config option
 	tm := time.NewTimer(time.Minute + time.Second*time.Duration(settings.BTsets.TorrentDisconnectTimeout))
+	defer tm.Stop()
 
 	select {
 	case <-t.Torrent.GotInfo():
@@ -196,7 +197,10 @@ func (t *Torrent) progressEvent() {
 		t.BytesWrittenData = st.BytesWritten.Int64()
 
 		if t.cache != nil {
-			t.PreloadedBytes = t.cache.GetState().Filled
+			// Only the byte count is needed here; GetState also builds the
+			// per-piece map and reader states for the UI, once per second
+			// per torrent.
+			t.PreloadedBytes = t.cache.Filled()
 		}
 	} else {
 		t.DownloadSpeed = 0

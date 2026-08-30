@@ -32,21 +32,17 @@ func Exists() bool {
 	return !os.IsNotExist(err)
 }
 
+// probeTimeout bounds a single ffprobe run.
+const probeTimeout = 5 * time.Minute
+
 func ProbeUrl(link string) (*ffprobe.ProbeData, error) {
-	data, err := ffprobe.ProbeURL(getCtx(), link)
-	return data, err
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	return ffprobe.ProbeURL(ctx, link)
 }
 
 func ProbeReader(reader io.Reader) (*ffprobe.ProbeData, error) {
-	data, err := ffprobe.ProbeReader(getCtx(), reader)
-	return data, err
-}
-
-func getCtx() context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(5 * time.Minute)
-		cancel()
-	}()
-	return ctx
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	return ffprobe.ProbeReader(ctx, reader)
 }

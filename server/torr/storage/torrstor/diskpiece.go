@@ -68,7 +68,7 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 	n, err = ff.ReadAt(b, off)
 
 	p.piece.Accessed = time.Now().Unix()
-	if int64(len(b))+off >= p.piece.Size {
+	if int64(len(b))+off >= p.piece.Size && p.piece.cache.cleanDue() {
 		go p.piece.cache.cleanPieces()
 	}
 	return n, err

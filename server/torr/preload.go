@@ -5,6 +5,7 @@ import (
 	"io"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"server/ffprobe"
@@ -65,6 +66,9 @@ func (t *Torrent) Preload(index int, size int64) {
 	if t.Info() == nil {
 		return
 	}
+	pieceLength := t.Info().PieceLength
+	// Current in-flight window of the start reader, exposed to the progress log.
+	var windowRA atomic.Int64
 
 	timeout := time.Second * time.Duration(settings.BTsets.TorrentDisconnectTimeout)
 	if timeout > time.Minute {
@@ -97,7 +101,9 @@ func (t *Torrent) Preload(index int, size int64) {
 					utils2.Format(t.DownloadSpeed), " Peers:",
 					t.Torrent.Stats().ActivePeers, "/",
 					t.Torrent.Stats().TotalPeers, " [Seeds:",
-					t.Torrent.Stats().ConnectedSeeders, "]")
+					t.Torrent.Stats().ConnectedSeeders, "] RA:",
+					utils2.Format(float64(windowRA.Load())), " Piece:",
+					utils2.Format(float64(pieceLength)))
 				log.TLogln("Preload:", statStr)
 				t.AddExpiredTime(timeout)
 			case <-stopChan:
@@ -128,7 +134,7 @@ func (t *Torrent) Preload(index int, size int64) {
 	}
 
 	// startend -> 8/16 MB
-	startend := t.Info().PieceLength
+	startend := pieceLength
 	if startend < 8<<20 {
 		startend = 8 << 20
 	}
@@ -183,7 +189,10 @@ func (t *Torrent) Preload(index int, size int64) {
 			defer readerEnd.Close() // Ensure reader is always closed
 
 			readerEnd.SetResponsive()
-			readerEnd.SetReadahead(0)
+			// The whole end chunk is the reader's span; requesting it at once
+			// avoids one-piece-at-a-time serialization on the same peers the
+			// start reader is using.
+			readerEnd.SetReadahead(preloadWindow(size, startend, pieceLength))
 
 			_, err := readerEnd.Seek(readerEndStart, io.SeekStart)
 			if err != nil {
@@ -218,12 +227,9 @@ func (t *Torrent) Preload(index int, size int64) {
 	}
 
 	// Main preload section
-	pieceLength := t.Info().PieceLength
-	readahead := pieceLength * 4
-	if readerStartEnd < readahead {
-		readahead = 0
-	}
+	readahead := preloadWindow(size, readerStartEnd, pieceLength)
 	readerStart.SetReadahead(readahead)
+	windowRA.Store(readahead)
 
 	offset := int64(0)
 	tmp := make([]byte, 32768)
@@ -247,9 +253,15 @@ func (t *Torrent) Preload(index int, size int64) {
 		}
 		offset += int64(n)
 
-		if readahead > 0 && readerStartEnd-(offset+int64(len(tmp))) < readahead {
-			readahead = 0
-			readerStart.SetReadahead(0)
+		// Shrink the window to what is left so the reader does not request
+		// past the preload target, but only in whole-piece steps: every
+		// SetReadahead takes the anacrolix client lock, and this loop runs
+		// once per 32 KB read. Dropping straight to 0 (the old behaviour)
+		// serialized the entire last window one piece at a time.
+		if remain := readerStartEnd - offset; remain >= 0 && readahead-remain >= pieceLength {
+			readahead = remain
+			readerStart.SetReadahead(readahead)
+			windowRA.Store(readahead)
 		}
 	}
 
@@ -272,6 +284,27 @@ func (t *Torrent) Preload(index int, size int64) {
 			t.Torrent.Stats().TotalPeers, "[ Seeds:",
 			t.Torrent.Stats().ConnectedSeeders, "]")
 	}
+}
+
+// preloadWindow returns the in-flight readahead for a preload reader.
+//
+// A fixed pieceLength*4 pins the pipeline to four pieces regardless of link
+// speed or configured cache, so the fill rate is capped at four piece
+// completions per round trip and a bigger cache only makes the wait longer.
+// Sizing the window off the preload target lets it scale with CacheSize and
+// PreloadCache, while pieceLength*4 remains the floor for small caches. The
+// result is clamped to span (the bytes this reader will actually read) so the
+// reader never requests beyond the preload target; raw anacrolix readers do
+// not clamp to cache capacity themselves.
+func preloadWindow(size, span, pieceLength int64) int64 {
+	ra := size / 4
+	if floor := pieceLength * 4; ra < floor {
+		ra = floor
+	}
+	if ra > span {
+		ra = span
+	}
+	return ra
 }
 
 func (t *Torrent) findFileIndex(index int) *torrent.File {

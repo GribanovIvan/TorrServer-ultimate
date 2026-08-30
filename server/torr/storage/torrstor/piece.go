@@ -1,7 +1,6 @@
 package torrstor
 
 import (
-	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 	"server/settings"
 )
@@ -74,8 +73,9 @@ func (p *Piece) Release() {
 	} else {
 		p.dPiece.Release()
 	}
-	// if !p.cache.isClosed {
-	p.cache.torrent.Piece(p.Id).SetPriority(torrent.PiecePriorityNone)
+	// The client must learn the data is gone so it does not report the piece
+	// as complete; the priority reset is normally a no-op here because
+	// clearPriority already covered every piece outside the reader windows.
+	p.cache.dropPriority(p.Id)
 	p.cache.torrent.Piece(p.Id).UpdateCompletion()
-	//}
 }
