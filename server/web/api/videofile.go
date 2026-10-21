@@ -54,7 +54,7 @@ func loadVideoContext(c *gin.Context) (*videoContext, bool) {
 		return nil, false
 	}
 
-	if tor.Stat == state.TorrentInDB {
+	if tor.Stat == state.TorrentInDB && !tor.OfflineReady() {
 		tor, err = torr.AddTorrent(spec, tor.Title, tor.Poster, tor.Data, tor.Category)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
@@ -69,7 +69,7 @@ func loadVideoContext(c *gin.Context) (*videoContext, bool) {
 
 	// Video index: same rules as in play.go.
 	videoID := -1
-	if len(tor.Files()) == 1 {
+	if tor.FileCount() == 1 {
 		videoID = 1
 	} else if id, err := strconv.Atoi(indexStr); err == nil {
 		videoID = id
@@ -79,17 +79,12 @@ func loadVideoContext(c *gin.Context) (*videoContext, bool) {
 		return nil, false
 	}
 
-	lengths := make(map[string]int64)
-	for _, f := range tor.Files() {
-		lengths[f.Path()] = f.Length()
-	}
-
 	var files []extfiles.FileInfo
 	for _, fs := range tor.Status().FileStats {
 		files = append(files, extfiles.FileInfo{
 			Index: fs.Id,
 			Path:  strings.ReplaceAll(fs.Path, "\\", "/"),
-			Size:  lengths[fs.Path],
+			Size:  fs.Length,
 		})
 	}
 
