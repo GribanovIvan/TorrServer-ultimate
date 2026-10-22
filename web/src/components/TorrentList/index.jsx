@@ -2,14 +2,23 @@ import { useMemo } from 'react'
 import TorrentCard from 'components/TorrentCard'
 import CircularProgress from '@material-ui/core/CircularProgress'
 import { TorrentListWrapper, CenteredGrid } from 'components/App/style'
+import OfflineToolbar from 'components/OfflineToolbar'
+import { useOfflineFilter } from 'components/OfflineToolbar/useOfflineFilter'
+import { filterTorrents } from 'utils/offline'
 
-import NoServerConnection from './NoServerConnection'
 import AddFirstTorrent from './AddFirstTorrent'
+import NoServerConnection from './NoServerConnection'
 
 export default function TorrentList({ isOffline, isLoading, sortABC, torrents, sortCategory }) {
+  // The summary and the status filter are built over ALL torrents (not only the selected category)
+  const { summary, hasOffline, filter, setFilter } = useOfflineFilter(torrents)
+
   const sortedTorrents = useMemo(() => {
     if (!torrents) return []
-    const filtered = torrents.filter(torrent => sortCategory === 'all' || torrent.category === sortCategory)
+    const filtered = filterTorrents(
+      torrents.filter(torrent => sortCategory === 'all' || torrent.category === sortCategory),
+      filter,
+    )
 
     if (sortABC) {
       return [...filtered].sort((a, b) => (a.title || '').localeCompare(b.title || '') || a.hash.localeCompare(b.hash))
@@ -22,7 +31,7 @@ export default function TorrentList({ isOffline, isLoading, sortABC, torrents, s
       if (tsA !== tsB) return tsB - tsA
       return a.hash.localeCompare(b.hash)
     })
-  }, [torrents, sortCategory, sortABC])
+  }, [torrents, sortCategory, sortABC, filter])
 
   if (isLoading || isOffline || !torrents?.length) {
     return (
@@ -40,6 +49,11 @@ export default function TorrentList({ isOffline, isLoading, sortABC, torrents, s
 
   return (
     <TorrentListWrapper>
+      {hasOffline && (
+        <div style={{ gridColumn: '1 / -1' }}>
+          <OfflineToolbar torrents={torrents} summary={summary} filter={filter} onFilterChange={setFilter} />
+        </div>
+      )}
       {sortedTorrents.map(torrent => (
         <TorrentCard key={torrent.hash} torrent={torrent} />
       ))}
