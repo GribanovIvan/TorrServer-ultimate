@@ -199,6 +199,7 @@ const Torrent = ({ torrent }) => {
     stat,
     data,
     offline_state: offlineState,
+    offline_pinned: offlinePinned,
     loaded_size: loadedSize,
     file_stats: torrentFileList,
   } = torrent
@@ -532,7 +533,7 @@ const Torrent = ({ torrent }) => {
             />
           )}
 
-          <OfflineControls hash={hash} offlineState={offlineState} />
+          <OfflineControls hash={hash} offlineState={offlineState} pinned={!!offlinePinned} />
 
           <StyledButton onClick={() => dropTorrent(torrent)}>
             <CloseIcon />
@@ -679,6 +680,7 @@ export default memo(Torrent, (prev, next) => {
     p.torrent_size === n.torrent_size &&
     p.loaded_size === n.loaded_size &&
     p.offline_state === n.offline_state &&
+    p.offline_pinned === n.offline_pinned &&
     p.download_speed === n.download_speed &&
     p.data === n.data &&
     sameFileList(p.file_stats, n.file_stats)
