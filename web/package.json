@@ -1,5 +1,5 @@
 {
-  "name": "torrserver_web",
+  "name": "torrserver-ng-web",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -62,10 +62,10 @@
     "eslint-plugin-prettier": "^3.4.0",
     "prettier": "^2.8.8"
   },
-  "description": "",
+  "description": "Community fork of TorrServer web UI",
   "main": "gulpfile.js",
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "sirin-media",
+  "license": "GPL-3.0",
   "homepage": "./"
 }
