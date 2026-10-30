@@ -1,0 +1,59 @@
+name: Sync with upstream
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'   # каждый понедельник 04:00 UTC
+  workflow_dispatch:       # ручной запуск
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/YouROK/TorrServer.git
+
+      - name: Fetch upstream
+        run: git fetch upstream
+
+      - name: Create sync branch
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BRANCH="sync/upstream-${TIMESTAMP}"
+          echo "SYNC_BRANCH=${BRANCH}" >> $GITHUB_ENV
+          git checkout -b "${BRANCH}"
+          git merge upstream/master --no-edit --allow-unrelated-histories || true
+
+      - name: Push sync branch
+        run: git push origin "${SYNC_BRANCH}"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.SYNC_BRANCH }}
+          base: master
+          title: 'chore: sync with upstream TorrServer'
+          body: |
+            Automated sync with upstream `YouROK/TorrServer/master`.
+
+            Review the changes carefully — if there are conflicts, resolve them
+            in this branch before merging.
+
+            Source: https://github.com/YouROK/TorrServer
+          labels: |
+            upstream-sync
+            automated
