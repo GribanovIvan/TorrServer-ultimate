@@ -1,3 +1,39 @@
+# TorrServer-NG
+
+Community-maintained fork of [TorrServer](https://github.com/YouROK/TorrServer) originally developed and maintained by [YouROK](https://github.com/YouROK).
+
+Maintained by [sirin-media](https://github.com/sirin-media) — community organization for free and open tools that help users navigate the vast ocean of media content.
+
+## About the name
+
+**Sirin** (Сирин) — paradise bird-maiden from Slavic mythology, whose enchanting song captivates those who hear it. In the same way, media content captivates users — our tools help them freely navigate this flow.
+
+## Attribution
+
+This project is a fork of TorrServer, originally developed and maintained by [YouROK](https://github.com/YouROK). All original code is licensed under GPL-3.0. We gratefully acknowledge the original author's contribution.
+
+This fork exists to provide:
+
+- Continued maintenance with merged pending community PRs
+- Multi-platform binary builds via CI (Windows, Linux, macOS, ARM)
+- Docker images in GHCR
+- Transparent roadmap and decision-making
+
+All improvements continue to be submitted upstream as PRs. If the upstream maintainer resumes activity, this fork is ready to be reconciled or merged back.
+
+## License
+
+GPL-3.0 — see [LICENSE](./LICENSE).
+
+## Status
+
+Initial setup — first release coming soon.
+
+---
+
+## Original README (TorrServer by YouROK)
+
+
 <p align="center" style="text-align: center">
   <img src="https://github.com/YouROK/TorrServer/assets/144587546/53f7175a-cda4-4a06-86b6-2ac07582dcf1" width="33%"><br/>
 </p>
