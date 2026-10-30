@@ -1,0 +1,31 @@
+TorrServer-NG
+=============
+
+A community-maintained fork of TorrServer.
+
+Upstream project
+----------------
+- Original project: TorrServer
+- Original author: YouROK (https://github.com/YouROK)
+- Upstream repository: https://github.com/YouROK/TorrServer
+
+Modifications
+-------------
+This fork includes:
+- Pending community PRs merged by sirin-media
+- CI/CD infrastructure for multi-platform builds
+- Branding changes (web UI title, organization name)
+
+All modifications are licensed under GPL-3.0, same as the original.
+
+License
+-------
+GPL-3.0-or-later. See LICENSE file for full text.
+
+Maintainer
+----------
+sirin-media organization
+https://github.com/sirin-media
+
+For the list of contributors to the original TorrServer project,
+see git history and https://github.com/YouROK/TorrServer/graphs/contributors
