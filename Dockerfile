@@ -1,5 +1,10 @@
 ### FRONT BUILD START ###
 FROM --platform=$BUILDPLATFORM node:16-alpine AS front
+LABEL org.opencontainers.image.title="TorrServer-NG"
+LABEL org.opencontainers.image.description="Community fork of TorrServer"
+LABEL org.opencontainers.image.source="https://github.com/sirin-media/torrserver-ng"
+LABEL org.opencontainers.image.authors="sirin-media"
+LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
 
 WORKDIR /app
 
