@@ -55,6 +55,12 @@ func subsTracks(c *gin.Context) {
 		return
 	}
 
+	// Fonts for ASS subtitles: ?fonts (list).
+	if _, ok := c.GetQuery("fonts"); ok {
+		subsFonts(c, vc.infoHash, vc.video, vc.files)
+		return
+	}
+
 	maxSize := sets.MaxSubtitleSize()
 	tracks, tooLarge := subs.MatchLimit(vc.video, vc.files, maxSize)
 
