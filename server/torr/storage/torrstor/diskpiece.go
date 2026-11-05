@@ -15,7 +15,9 @@ import (
 type DiskPiece struct {
 	piece *Piece
 
-	name string
+	name     string
+	file     *os.File
+	writable bool
 
 	mu sync.RWMutex
 }
@@ -35,12 +37,11 @@ func (p *DiskPiece) WriteAt(b []byte, off int64) (n int, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	ff, err := os.OpenFile(p.name, os.O_RDWR|os.O_CREATE, 0o666)
+	ff, err := p.openLocked(true)
 	if err != nil {
 		log.TLogln("Error open file:", err)
 		return 0, err
 	}
-	defer ff.Close()
 	n, err = ff.WriteAt(b, off)
 
 	p.piece.Size += int64(n)
@@ -55,7 +56,7 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	ff, err := os.OpenFile(p.name, os.O_RDONLY, 0o666)
+	ff, err := p.openLocked(false)
 	if os.IsNotExist(err) {
 		return 0, io.EOF
 	}
@@ -63,8 +64,6 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 		log.TLogln("Error open file:", err)
 		return 0, err
 	}
-	defer ff.Close()
-
 	n, err = ff.ReadAt(b, off)
 
 	p.piece.Accessed = time.Now().Unix()
@@ -74,9 +73,51 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, err
 }
 
+// Keep handles across small torrent chunks; callers serialize access with mu.
+func (p *DiskPiece) openLocked(write bool) (*os.File, error) {
+	if p.piece.cache.isClosed.Load() {
+		return nil, io.ErrClosedPipe
+	}
+	if p.file != nil && (!write || p.writable) {
+		return p.file, nil
+	}
+	if err := p.closeLocked(); err != nil {
+		return nil, err
+	}
+	flags := os.O_RDONLY
+	if write {
+		flags = os.O_RDWR | os.O_CREATE
+	}
+	file, err := os.OpenFile(p.name, flags, 0o666)
+	if err != nil {
+		return nil, err
+	}
+	p.file, p.writable = file, write
+	return file, nil
+}
+
+func (p *DiskPiece) closeLocked() error {
+	if p.file == nil {
+		return nil
+	}
+	file := p.file
+	p.file, p.writable = nil, false
+	return file.Close()
+}
+
+// Close retains downloaded bytes; Release evicts them.
+func (p *DiskPiece) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.closeLocked()
+}
+
 func (p *DiskPiece) Release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.closeLocked(); err != nil {
+		log.TLogln("Error closing piece:", err)
+	}
 
 	p.piece.Size = 0
 	p.piece.Complete = false
