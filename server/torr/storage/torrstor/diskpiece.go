@@ -106,6 +106,9 @@ func (p *DiskPiece) openLocked(write bool) (*os.File, error) {
 		return nil, err
 	}
 	p.file, p.writable = file, write
+	for _, v := range diskHandles.add(p) {
+		v.evictIdle()
+	}
 	return file, nil
 }
 
@@ -115,6 +118,7 @@ func (p *DiskPiece) closeLocked() error {
 	}
 	file := p.file
 	p.file, p.writable = nil, false
+	diskHandles.remove(p)
 	return file.Close()
 }
 
@@ -139,6 +143,7 @@ func (p *DiskPiece) releaseState() string {
 
 	if f := p.file; f != nil {
 		p.file, p.writable = nil, false
+		diskHandles.remove(p)
 		if old, loaded := detachedFiles.Swap(p.name, f); loaded {
 			_ = old.(*os.File).Close()
 		}
