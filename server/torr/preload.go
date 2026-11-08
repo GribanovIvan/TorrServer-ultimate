@@ -3,12 +3,9 @@ package torr
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"server/ffprobe"
 
 	"server/log"
 	"server/settings"
@@ -121,13 +118,7 @@ func (t *Torrent) Preload(index int, size int64) {
 		}
 	}(logStopChan)
 
-	if ffprobe.Exists() {
-		link := settings.LoopbackBaseURL() + "/play/" + torrent.InfoHash().HexString() + "/" + strconv.Itoa(index)
-		if data, err := ffprobe.ProbeUrl(link); err == nil {
-			t.BitRate = data.Format.BitRate
-			t.DurationSeconds = data.Format.DurationSeconds
-		}
-	}
+	probeMedia(t, torrent.InfoHash().HexString(), index)
 
 	// Check if torrent was closed
 	t.muTorrent.Lock()

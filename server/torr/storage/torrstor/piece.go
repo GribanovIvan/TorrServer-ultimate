@@ -1,8 +1,6 @@
 package torrstor
 
 import (
-	"server/settings"
-
 	"github.com/anacrolix/torrent/storage"
 )
 
@@ -27,7 +25,7 @@ func NewPiece(id int, cache *Cache) *Piece {
 		cache: cache,
 	}
 
-	if !settings.BTsets.UseDisk {
+	if !useDisk() {
 		p.mPiece = NewMemPiece(p)
 	} else {
 		p.dPiece = NewDiskPiece(p)
@@ -36,7 +34,7 @@ func NewPiece(id int, cache *Cache) *Piece {
 }
 
 func (p *Piece) WriteAt(b []byte, off int64) (n int, err error) {
-	if !settings.BTsets.UseDisk {
+	if !useDisk() {
 		return p.mPiece.WriteAt(b, off)
 	} else {
 		return p.dPiece.WriteAt(b, off)
@@ -44,7 +42,7 @@ func (p *Piece) WriteAt(b []byte, off int64) (n int, err error) {
 }
 
 func (p *Piece) ReadAt(b []byte, off int64) (n int, err error) {
-	if !settings.BTsets.UseDisk {
+	if !useDisk() {
 		return p.mPiece.ReadAt(b, off)
 	} else {
 		return p.dPiece.ReadAt(b, off)
@@ -148,7 +146,7 @@ func (p *Piece) releaseBuffers() (diskPath string) {
 	if p == nil {
 		return ""
 	}
-	if !settings.BTsets.UseDisk {
+	if !useDisk() {
 		if p.mPiece != nil {
 			p.mPiece.Release()
 		}

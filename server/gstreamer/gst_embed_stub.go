@@ -1,4 +1,4 @@
-//go:build gst && (!embed_gstlib || !windows || (windows && !amd64))
+//go:build gst && (!embed_gstlib || !windows || (windows && !amd64)) && !slim
 
 package gstreamer
 

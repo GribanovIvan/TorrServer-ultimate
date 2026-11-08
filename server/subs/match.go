@@ -1,3 +1,5 @@
+//go:build !slim
+
 // Package subs finds external subtitle files in a torrent and converts them to WebVTT.
 // It uses the standard library only.
 package subs

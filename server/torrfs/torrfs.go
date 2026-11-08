@@ -1,3 +1,5 @@
+//go:build !slim
+
 package torrfs
 
 func New() *RootDir {

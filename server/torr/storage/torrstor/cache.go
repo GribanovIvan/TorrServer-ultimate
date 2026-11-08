@@ -82,7 +82,7 @@ func (c *Cache) Init(info *metainfo.Info, hash metainfo.Hash) {
 	c.totalLength = info.TotalLength()
 	c.hash = hash
 
-	if settings.BTsets.UseDisk {
+	if useDisk() {
 		name := filepath.Join(settings.BTsets.TorrentsSavePath, hash.HexString())
 		err := os.MkdirAll(name, 0o777)
 		if err != nil {
@@ -93,7 +93,7 @@ func (c *Cache) Init(info *metainfo.Info, hash metainfo.Hash) {
 	for i := 0; i < c.pieceCount; i++ {
 		c.pieces[i] = NewPiece(i, c)
 	}
-	if settings.BTsets.UseDisk {
+	if useDisk() {
 		c.loadVerified()
 	}
 

@@ -57,21 +57,6 @@ func TestShutdownReadOnlyForbidden(t *testing.T) {
 	}
 }
 
-func TestTMDBSettingsUninitialized(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	old := sets.BTsets
-	sets.BTsets = nil
-	t.Cleanup(func() { sets.BTsets = old })
-
-	r := gin.New()
-	r.GET("/tmdb/settings", tmdbSettings)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/tmdb/settings", nil))
-	if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), "Settings not initialized") {
-		t.Fatalf("tmdb %d %s", w.Code, w.Body.String())
-	}
-}
-
 func TestSettingsRejectsFloatIntegers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

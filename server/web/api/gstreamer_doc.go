@@ -1,3 +1,5 @@
+//go:build !slim
+
 //nolint:unused // swagger model stubs for swag
 package api
 

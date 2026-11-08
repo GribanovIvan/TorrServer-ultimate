@@ -1,4 +1,4 @@
-//go:build gst && windows && (amd64 || arm64)
+//go:build gst && windows && (amd64 || arm64) && !slim
 
 package gstreamer
 

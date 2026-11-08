@@ -3,10 +3,6 @@ package api
 import (
 	"net/http"
 
-	"server/bonjour"
-	"server/dlna"
-	"server/rutor"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
@@ -74,19 +70,4 @@ func settings(c *gin.Context) {
 		return
 	}
 	_ = c.AbortWithError(http.StatusBadRequest, errors.New("action is empty"))
-}
-
-// restartServices applies the settings now in effect to DLNA, Bonjour and the
-// rutor search.
-func restartServices() {
-	dlna.Stop()
-	if sets.BTsets.EnableDLNA {
-		dlna.Start()
-	}
-	bonjour.Stop()
-	if sets.BTsets.EnableBonjour {
-		bonjour.Start()
-	}
-	rutor.Stop()
-	rutor.Start()
 }

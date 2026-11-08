@@ -1,5 +1,4 @@
-//go:build !windows && !ios
-// +build !windows,!ios
+//go:build !windows && !ios && !slim
 
 package fuse
 

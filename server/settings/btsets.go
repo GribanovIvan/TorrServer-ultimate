@@ -179,7 +179,7 @@ func SetBTSets(sets *BTSets) {
 		sets.PreloadCache = 100
 	}
 
-	if sets.TorrentsSavePath == "" {
+	if sets.TorrentsSavePath == "" || !DiskCache {
 		sets.UseDisk = false
 	} else if sets.UseDisk {
 		BTsets = sets
@@ -253,6 +253,9 @@ func loadBTSets() {
 		if err == nil {
 			if BTsets.ReaderReadAHead < 5 {
 				BTsets.ReaderReadAHead = 5
+			}
+			if !DiskCache {
+				BTsets.UseDisk = false
 			}
 			// Set default TMDB settings if missing (for existing configs)
 			if BTsets.TMDBSettings.APIURL == "" {

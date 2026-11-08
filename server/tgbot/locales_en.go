@@ -1,3 +1,5 @@
+//go:build !slim
+
 package tgbot
 
 var msgEN = map[string]string{

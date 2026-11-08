@@ -6,10 +6,7 @@ import (
 
 	"server/torrshash"
 
-	"server/dlna"
-	gstreamer "server/gstreamer/bridge"
 	"server/log"
-	set "server/settings"
 	"server/torr"
 	"server/torr/state"
 	"server/web/api/utils"
@@ -160,10 +157,7 @@ func addTorrent(req torrReqJS, c *gin.Context) {
 		}
 	}()
 
-	if set.BTsets.EnableDLNA {
-		dlna.Stop()
-		dlna.Start()
-	}
+	refreshDLNA()
 	c.JSON(200, tor.Status())
 }
 
@@ -197,12 +191,8 @@ func remTorrent(req torrReqJS, c *gin.Context) {
 		return
 	}
 	torr.RemTorrent(req.Hash)
-	_ = gstreamer.Remove(req.Hash)
-	// TODO: remove
-	if set.BTsets.EnableDLNA {
-		dlna.Stop()
-		dlna.Start()
-	}
+	dropTranscodes(req.Hash)
+	refreshDLNA()
 	c.Status(200)
 }
 
@@ -225,7 +215,7 @@ func dropTorrent(req torrReqJS, c *gin.Context) {
 		return
 	}
 	torr.DropTorrent(req.Hash)
-	_ = gstreamer.Remove(req.Hash)
+	dropTranscodes(req.Hash)
 	c.Status(200)
 }
 
@@ -234,12 +224,8 @@ func wipeTorrents(c *gin.Context) {
 	for _, t := range torrents {
 		hash := t.TorrentSpec.InfoHash.HexString()
 		torr.RemTorrent(hash)
-		_ = gstreamer.Remove(hash)
+		dropTranscodes(hash)
 	}
-	// TODO: remove (copied todo from remTorrent())
-	if set.BTsets.EnableDLNA {
-		dlna.Stop()
-		dlna.Start()
-	}
+	refreshDLNA()
 	c.Status(200)
 }

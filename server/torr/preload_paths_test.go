@@ -3,13 +3,9 @@ package torr
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
-	"server/ffprobe"
 	"server/torr/offlinetest"
 	"server/torr/state"
 )
@@ -56,20 +52,6 @@ func TestBindStreamReadContextHonorsCancel(t *testing.T) {
 		t.Fatal("Read ignored the canceled context")
 	}
 }
-
-func mockFFProbe(t *testing.T, script string) {
-	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("ffprobe mock is a shell script")
-	}
-	path := filepath.Join(t.TempDir(), "ffprobe")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(ffprobe.SetBinPath(path))
-}
-
-const probeOK = "#!/bin/sh\nprintf '%s' '{\"format\":{\"duration\":\"1.5\",\"bit_rate\":\"1000\"}}'\n"
 
 func setStat(tor *Torrent, s state.TorrentStat) {
 	tor.muTorrent.Lock()
@@ -164,37 +146,6 @@ func TestPreloadUnknownIndexUsesFirstFile(t *testing.T) {
 	}
 	if tor.findFileIndex(tor.Torrent, 99) != nil {
 		t.Fatal("findFileIndex found an unknown id")
-	}
-}
-
-func TestPreloadClearsProbeResult(t *testing.T) {
-	for name, script := range map[string]string{
-		"probe ok":     probeOK,
-		"probe failed": "#!/bin/sh\nexit 1\n",
-	} {
-		t.Run(name, func(t *testing.T) {
-			tor, _ := connectShow(t)
-			mockFFProbe(t, script) // after Prepare, which points ffprobe at a missing binary
-			tor.Preload(1, 8<<10)
-			if got := statOf(tor); got != state.TorrentWorking {
-				t.Fatalf("stat %v", got)
-			}
-			if tor.BitRate != "" || tor.DurationSeconds != 0 {
-				t.Fatalf("probe result kept after preload: %q %v", tor.BitRate, tor.DurationSeconds)
-			}
-		})
-	}
-}
-
-func TestPreloadStopsWhenClosedDuringProbe(t *testing.T) {
-	tor, _ := connectShow(t)
-	mockFFProbe(t, "#!/bin/sh\nsleep 0.4\n"+probeOK)
-	done := runPreload(tor, 1, 8<<10)
-	waitStat(t, tor, state.TorrentPreload)
-	tor.Close()
-	waitDone(t, done, "close during probe")
-	if got := statOf(tor); got != state.TorrentClosed {
-		t.Fatalf("stat %v, want closed", got)
 	}
 }
 

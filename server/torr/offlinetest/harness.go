@@ -15,7 +15,6 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 
-	"server/ffprobe"
 	"server/settings"
 )
 
@@ -23,7 +22,7 @@ import (
 func Prepare(t testing.TB) {
 	t.Helper()
 	dir := t.TempDir()
-	restoreFF := ffprobe.SetBinPath(filepath.Join(dir, "no-ffprobe"))
+	restoreFF := hideFFprobe(dir)
 	oldPath, oldSets, oldArgs := settings.Path, settings.BTsets, settings.Args
 	oldRO, oldAuth, oldWA := settings.ReadOnly, settings.HttpAuth, settings.SearchWA
 	oldIP4, oldIP6, oldTor := settings.PubIPv4, settings.PubIPv6, settings.TorAddr

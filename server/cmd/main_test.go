@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"net"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 
 	"server"
 	"server/settings"
-	"server/torr/offlinetest"
 
 	"github.com/alexflint/go-arg"
 )
@@ -52,23 +50,14 @@ func TestArgsVersionAndFlags(t *testing.T) {
 	}
 	err = p.Parse([]string{
 		"-p", "9000",
-		"--ssl",
-		"--sslport", "9443",
-		"--https-only",
-		"--force-https",
-		"--http-media",
 		"-m", "10",
-		"--pprof",
 		"--proxyurl", "socks5://127.0.0.1:1080",
 		"--proxymode", "peers",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if params.Port != "9000" || params.SslPort != "9443" || !params.Ssl || !params.HTTPSOnly || !params.ForceHTTPS || !params.HTTPMedia {
-		t.Fatalf("%+v", params)
-	}
-	if params.MaxSize != "10" || !params.Pprof || params.ProxyURL != "socks5://127.0.0.1:1080" || params.ProxyMode != "peers" {
+	if params.Port != "9000" || params.MaxSize != "10" || params.ProxyURL != "socks5://127.0.0.1:1080" || params.ProxyMode != "peers" {
 		t.Fatalf("%+v", params)
 	}
 }
@@ -115,20 +104,6 @@ func TestRunFlags(t *testing.T) {
 		t.Fatal(code)
 	}
 
-	dir := t.TempDir()
-	base := []string{"-k", "-a", "-r", "-d", dir, "-p", "1", "-t", dir, "-m", "1", "-4", "8.8.8.8", "-6", "::1", "--torrentaddr", "127.0.0.1:0", "--proxyurl", "socks5://127.0.0.1:1", "--proxymode", "nope", "--pprof"}
-	if code := run(append(append([]string{}, base...), "--force-https")); code != 1 {
-		t.Fatal("force-https", code)
-	}
-	if code := run([]string{"-k", "-d", dir, "--https-only"}); code != 1 {
-		t.Fatal("https-only", code)
-	}
-	if code := run([]string{"-k", "-d", dir, "--ssl", "--https-only", "--http-media"}); code != 1 {
-		t.Fatal("combined", code)
-	}
-	if code := run([]string{"-k", "-d", dir, "--http-media"}); code != 1 {
-		t.Fatal("http-media", code)
-	}
 }
 
 func TestRunStartsAndStops(t *testing.T) {
@@ -172,11 +147,11 @@ func TestRunStartsAndStops(t *testing.T) {
 	}
 	done := make(chan int, 1)
 	go func() {
-		done <- run([]string{
+		done <- run(append([]string{
 			"-k", "-d", dir, "-p", strconv.Itoa(port),
 			"-i", "127.0.0.1", "-4", "8.8.8.8",
-			"-t", dir, "--torrentaddr", "127.0.0.1:0",
-		})
+			"--torrentaddr", "127.0.0.1:0",
+		}, watchDirArgs(dir)...))
 	}()
 
 	deadline := time.Now().Add(45 * time.Second)
@@ -202,27 +177,8 @@ func TestRunStartsAndStops(t *testing.T) {
 	if !up {
 		t.Fatal("server did not answer /echo")
 	}
-	show := offlinetest.WriteShow(t)
-	var meta bytes.Buffer
-	if err := show.Meta.Write(&meta); err != nil {
-		t.Fatal(err)
-	}
-	torrentPath := filepath.Join(dir, "show.torrent")
-	if err := os.WriteFile(torrentPath, meta.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "note.txt"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	deadline = time.Now().Add(8 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, err := os.Stat(torrentPath); os.IsNotExist(err) {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if _, err := os.Stat(torrentPath); err == nil {
-		t.Fatal("watcher left the torrent file")
+	if len(watchDirArgs(dir)) > 0 {
+		checkWatchDirAddsTorrent(t, dir)
 	}
 	server.Stop()
 	select {
@@ -267,5 +223,4 @@ func TestDNSCheckerFallback(t *testing.T) {
 	if _, err := d.LookupHostWithFallback("example.invalid"); err != nil {
 		t.Fatal(err)
 	}
-	go watchDir(filepath.Join(t.TempDir(), "missing"), nil)
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -24,7 +23,6 @@ import (
 	"server/torr"
 	"server/torr/state"
 	"server/utils"
-	"server/web/sslcerts"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -341,36 +339,8 @@ func searchLastPlayed(tor *state.TorrentStatus) int {
 // TorrServer's self-signed certificate, so when the playlist was requested over it and the
 // plain HTTP port serves media, the links point at the HTTP port instead.
 func mediaBaseURL(c *gin.Context) string {
-	if c.Request.TLS != nil && sets.BTsets != nil && sets.Port != "" && sets.PlainHTTPServesMedia() &&
-		sslcerts.IsGenerated(sets.BTsets.SslCert, sets.BTsets.SslKey) {
-		host, _, err := net.SplitHostPort(c.Request.Host)
-		if err != nil {
-			host = strings.TrimSuffix(strings.TrimPrefix(c.Request.Host, "["), "]")
-		}
-		return "http://" + net.JoinHostPort(host, sets.Port)
+	if base, ok := plainMediaBase(c); ok {
+		return base
 	}
 	return utils.GetScheme(c) + "://" + utils.GetHost(c)
-}
-
-type mediaBaseResponse struct {
-	Base string `json:"base"`
-}
-
-// mediaBase godoc
-//
-//	@Summary		Base URL for external players
-//	@Description	Scheme and host that links handed to external players (VLC, copied links)
-//	@Description	should use. It differs from the web UI origin when the UI is served over
-//	@Description	TorrServer's self-signed HTTPS certificate, which players reject, and the
-//	@Description	plain HTTP port serves media. In-page playback should keep using the UI origin.
-//
-//	@Tags			API
-//
-//	@Produce		json
-//	@Security		BasicAuth
-//	@Success		200	{object}	mediaBaseResponse
-//	@Router			/mediabase [get]
-func mediaBase(c *gin.Context) {
-	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, mediaBaseResponse{Base: mediaBaseURL(c)})
 }

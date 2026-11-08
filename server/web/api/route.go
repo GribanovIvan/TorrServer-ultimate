@@ -1,7 +1,6 @@
 package api
 
 import (
-	config "server/settings"
 	"server/web/auth"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +10,9 @@ type requestI struct {
 	Action string `json:"action,omitempty"`
 }
 
+// SetupRoute registers the API every profile serves: torrents, streaming,
+// playlists, settings and viewed marks. Routes of other features come from
+// setupFeatureRoutes (routes_std.go, empty in the slim profile).
 func SetupRoute(route gin.IRouter) {
 	authorized := route.Group("/", auth.CheckAuth())
 
@@ -18,10 +20,6 @@ func SetupRoute(route gin.IRouter) {
 	authorized.GET("/shutdown/*reason", shutdown)
 
 	authorized.POST("/settings", settings)
-	authorized.GET("/waf", getWAF)
-	authorized.GET("/mediabase", mediaBase)
-	authorized.POST("/waf", updateWAF)
-	authorized.POST("/torznab/test", torznabTest)
 
 	authorized.POST("/torrents", torrents)
 
@@ -38,8 +36,6 @@ func SetupRoute(route gin.IRouter) {
 	route.HEAD("/play/:hash/:id", play)
 	route.GET("/play/:hash/:id", play)
 
-	route.GET("/subs/:hash/:id", subsTracks)
-
 	authorized.POST("/viewed", viewed)
 
 	authorized.GET("/playlistall/all.m3u", allPlayList)
@@ -49,34 +45,5 @@ func SetupRoute(route gin.IRouter) {
 
 	authorized.GET("/download/:size", download)
 
-	if config.SearchWA {
-		route.GET("/search/*query", rutorSearch)
-	} else {
-		authorized.GET("/search/*query", rutorSearch)
-	}
-
-	if config.SearchWA {
-		route.GET("/torznab/search/*query", torznabSearch)
-		route.GET("/torznab/caps", torznabCaps)
-	} else {
-		authorized.GET("/torznab/search/*query", torznabSearch)
-		authorized.GET("/torznab/caps", torznabCaps)
-	}
-	// Storage settings endpoints
-	authorized.GET("/storage/settings", GetStorageSettings)
-	authorized.POST("/storage/settings", UpdateStorageSettings)
-	// TMDB settings endpoint
-	authorized.GET("/tmdb/settings", tmdbSettings)
-	// GStreamer
-	authorized.GET("/gst/settings", GetGStreamerSettings)
-	authorized.POST("/gst/settings", UpdateGStreamerSettings)
-	// FFProbe
-	authorized.GET("/ffp/status", ffprobeStatus)
-	authorized.GET("/ffp/:hash/:id", ffp)
-
-	authorized.GET("/runtime/status", runtimeStatus)
-
-	if config.Args != nil && config.Args.Pprof {
-		mountPprof(authorized)
-	}
+	setupFeatureRoutes(route, authorized)
 }

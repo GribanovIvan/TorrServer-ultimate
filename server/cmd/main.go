@@ -10,57 +10,37 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"server/torr/utils"
-
 	"github.com/alexflint/go-arg"
-	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/browser"
 
 	"server"
-	"server/docs"
 	"server/log"
 	"server/settings"
-	"server/torr"
 	"server/version"
 )
 
 type args struct {
 	Port        string   `arg:"-p" help:"web server port (default 8090)"`
 	IPs         []string `arg:"-i,--ip,separate" help:"web server bind addr, or unix:/path/to.sock for a Unix socket (repeatable; default empty binds all interfaces)"`
-	Ssl         bool     `help:"enables https"`
-	SslPort     string   `help:"web server ssl port, If not set, will be set to default 8091 or taken from db(if stored previously). Accepted if --ssl enabled."`
-	SslCert     string   `help:"path to ssl cert file. If not set, will be taken from db(if stored previously) or default self-signed certificate/key will be generated. Accepted if --ssl enabled."`
-	SslKey      string   `help:"path to ssl key file. If not set, will be taken from db(if stored previously) or default self-signed certificate/key will be generated. Accepted if --ssl enabled."`
 	Path        string   `arg:"-d" help:"database and config dir path"`
 	LogPath     string   `arg:"-l" help:"server log file path"`
 	WebLogPath  string   `arg:"-w" help:"web access log file path"`
 	RDB         bool     `arg:"-r" help:"start in read-only DB mode"`
 	HttpAuth    bool     `arg:"-a" help:"enable http auth on all requests"`
 	DontKill    bool     `arg:"-k" help:"don't kill server on signal"`
-	UI          bool     `arg:"-u" help:"open torrserver page in browser"`
-	TorrentsDir string   `arg:"-t" help:"autoload torrents from dir"`
 	TorrentAddr string   `help:"Torrent client address, like 127.0.0.1:1337 (default :PeersListenPort)"`
 	PubIPv4     string   `arg:"-4" help:"set public IPv4 addr"`
 	PubIPv6     string   `arg:"-6" help:"set public IPv6 addr"`
-	SearchWA    bool     `arg:"-s" help:"search without auth"`
 	MaxSize     string   `arg:"-m" help:"max allowed stream size (in Bytes)"`
-	TGToken     string   `arg:"-T" help:"telegram bot token"`
-	FusePath    string   `arg:"-f" help:"fuse mount path"`
-	WebDAV      bool     `help:"web dav enable"`
 	ProxyURL    string   `help:"proxy URL for BitTorrent traffic (http, socks4, socks5, socks5h), e.g. socks5://user:password@127.0.0.1:8080"`
 	ProxyMode   string   `help:"proxy mode: tracker (only HTTP trackers, default), peers (only peer connections), or full (all traffic)"`
-	ForceHTTPS  bool     `arg:"--force-https" help:"redirect all HTTP requests to HTTPS (requires --ssl)"`
-	HTTPSOnly   bool     `arg:"--https-only" help:"with --ssl, don't open the plain HTTP port (--port): everything is served over HTTPS only. Players and TVs need a trusted certificate"`
-	HTTPMedia   bool     `arg:"--http-media" help:"with --force-https, keep serving media URLs (/stream, /play, playlists) over plain HTTP for players and TVs that can't use HTTPS. Stream URLs and Basic auth credentials then travel unencrypted: use on trusted networks only"`
-	Pprof       bool     `arg:"--pprof" help:"enable /debug/pprof (pair with -a; exposes heap)"`
-	DownloadDir string   `arg:"-x,--downloaddir" help:"serve files already downloaded here (e.g. by qBittorrent) instead of streaming them; the path is <dir>/<torrent file path>, and only a file of the exact size is used, so keep incomplete files out of it"`
+	// featureArgs holds the flags of the build profile (args_std.go, args_slim.go).
+	featureArgs
 }
 
 func (args) Version() string {
@@ -122,8 +102,6 @@ func run(argv []string) int {
 	if params.RDB {
 		log.TLogln("Running in Read-only DB mode!")
 	}
-	docs.SwaggerInfo.Version = version.Version
-
 	// Simple Usage:
 	dnsResolve()
 
@@ -143,17 +121,6 @@ func run(argv []string) int {
 
 	Preconfig(params.DontKill)
 
-	if params.UI {
-		go func() {
-			time.Sleep(time.Second)
-			if params.Ssl {
-				_ = browser.OpenURL("https://127.0.0.1:" + params.SslPort)
-			} else {
-				_ = browser.OpenURL("http://127.0.0.1:" + params.Port)
-			}
-		}()
-	}
-
 	if params.TorrentAddr != "" {
 		settings.TorAddr = params.TorrentAddr
 	}
@@ -166,18 +133,12 @@ func run(argv []string) int {
 		settings.PubIPv6 = params.PubIPv6
 	}
 
-	if params.TorrentsDir != "" {
-		go watchTDir(params.TorrentsDir)
-	}
-
 	if params.MaxSize != "" {
 		maxSize, err := strconv.ParseInt(params.MaxSize, 10, 64)
 		if err == nil {
 			settings.MaxSize = maxSize
 		}
 	}
-
-	settings.DownloadDir = params.DownloadDir
 
 	if params.ProxyURL != "" && params.ProxyMode == "" {
 		params.ProxyMode = "tracker" // default
@@ -190,60 +151,30 @@ func run(argv []string) int {
 	settings.Args = &settings.ExecArgs{
 		Port:        params.Port,
 		IPs:         params.IPs,
-		Ssl:         params.Ssl,
-		SslPort:     params.SslPort,
-		SslCert:     params.SslCert,
-		SslKey:      params.SslKey,
 		Path:        params.Path,
 		LogPath:     params.LogPath,
 		WebLogPath:  params.WebLogPath,
 		RDB:         params.RDB,
 		HttpAuth:    params.HttpAuth,
 		DontKill:    params.DontKill,
-		UI:          params.UI,
-		TorrentsDir: params.TorrentsDir,
 		TorrentAddr: params.TorrentAddr,
 		PubIPv4:     params.PubIPv4,
 		PubIPv6:     params.PubIPv6,
-		SearchWA:    params.SearchWA,
 		MaxSize:     params.MaxSize,
-		TGToken:     params.TGToken,
-		FusePath:    params.FusePath,
-		WebDAV:      params.WebDAV,
 		ProxyURL:    params.ProxyURL,
 		ProxyMode:   params.ProxyMode,
-		ForceHTTPS:  params.ForceHTTPS,
-		HTTPMedia:   params.HTTPMedia,
-		HTTPSOnly:   params.HTTPSOnly,
-		Pprof:       params.Pprof,
 	}
-
-	if params.Pprof {
-		runtime.SetBlockProfileRate(1)
-		runtime.SetMutexProfileFraction(5)
-		log.TLogln("pprof enabled at /debug/pprof/")
-	}
+	params.featureArgs.apply(settings.Args)
 
 	if params.ProxyURL != "" {
 		log.TLogln("Proxy configured from CLI:", params.ProxyURL, "mode:", settings.Args.ProxyMode)
 	}
 
-	if params.ForceHTTPS && !params.Ssl {
-		log.TLogln("Error: --force-https requires --ssl")
+	if err := params.featureArgs.check(); err != nil {
+		log.TLogln("Error:", err)
 		return 1
 	}
-	if params.HTTPSOnly && !params.Ssl {
-		log.TLogln("Error: --https-only requires --ssl")
-		return 1
-	}
-	if params.HTTPSOnly && params.HTTPMedia {
-		log.TLogln("Error: --https-only and --http-media can't be combined (--https-only doesn't open the HTTP port)")
-		return 1
-	}
-	if params.HTTPMedia && !params.ForceHTTPS {
-		log.TLogln("Error: --http-media requires --force-https (without it, media is already served over HTTP)")
-		return 1
-	}
+	params.featureArgs.start(params.Port)
 
 	if err := server.Start(); err != nil {
 		log.TLogln(err)
@@ -253,95 +184,6 @@ func run(argv []string) int {
 	log.Close()
 	time.Sleep(time.Second * 3)
 	return 0
-}
-
-func watchTDir(dir string) { watchDir(dir, nil) }
-
-func watchDir(dir string, stop <-chan struct{}) {
-	path, err := filepath.Abs(dir) // Attempt to convert the provided dir path into an absolute (full) filesystem path.
-	if err != nil {
-		path = dir
-	} // If an error occurs while obtaining the absolute path, the original relative path is used.
-
-	watcher, err := fsnotify.NewWatcher() // Create a new filesystem watcher (event-based instead of polling).
-	if err != nil {
-		log.TLogln("Error creating watcher:", err)
-		return
-	}
-	defer func() { _ = watcher.Close() }()
-
-	err = watcher.Add(path) // Add target directory to watcher to receive filesystem events.
-	if err != nil {
-		log.TLogln("Error adding directory to watcher:", err)
-		return
-	}
-
-	for { // Start of an infinite loop for continuous background monitoring using filesystem events.
-
-		select {
-		case <-stop:
-			return
-		case event, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-
-			// Process only file creation or modification events
-			if event.Op&(fsnotify.Create|fsnotify.Write) == 0 {
-				continue
-			}
-
-			func() { // Open an anonymous function to isolate processing context per file.
-				defer func() { // Deferred execution of a safety function that always runs at the end (even in case of panic).
-					if r := recover(); r != nil { // Catch critical runtime errors (panic) during torrent processing.
-						log.TLogln("Recovered from panic in watchTDir:", r) // Log recovered panic to prevent full service crash.
-					}
-				}()
-
-				filename := event.Name                                     // Retrieves the full path of the file directly from the event generated by the watcher.
-				if strings.ToLower(filepath.Ext(filename)) != ".torrent" { // Extract the file extension, convert it to lowercase, and check it. If it is not .torrent, the file is ignored.
-					return // Ends execution of the anonymous function for the current file and moves to the next event.
-				}
-
-				sp, err := utils.OpenTorrentFile(filename) // Parse the torrent file: read Bencode structure and extract metadata.
-				if err != nil {
-					log.TLogln("Error parse file name:", err)
-					return
-				}
-
-				tor, err := torr.AddTorrent(sp, "", "", "", "") // Add parsed torrent specification into active torrent engine.
-				if err != nil {
-					log.TLogln("Error parse torrent file:", err)
-					return
-				}
-
-				if !tor.GotInfo() { // Check whether torrent metadata (info section) is available.
-					log.TLogln("Error get info from torrent") // If metadata is missing, log error and skip processing.
-					return
-				}
-
-				// If torrent has no custom title, assign default name from metadata.
-				tor.EnsureTitle(func() string { return tor.Name() })
-
-				// Long database operation is now safe
-				torr.SaveTorrentToDB(tor) // Save torrent metadata into SQLite database.
-				tor.Drop()                // Free RAM by removing torrent from active memory after processing.
-
-				// Safely remove the original torrent file before writing to database.
-				// This prevents reprocessing in case of repeated filesystem events.
-				if err := os.Remove(filename); err != nil {
-					log.TLogln("Error removing torrent file:", err)
-				}
-			}()
-
-		case err, ok := <-watcher.Errors:
-			if !ok {
-				return
-			}
-			// Log filesystem watcher errors
-			log.TLogln("Watcher error:", err)
-		}
-	}
 }
 
 ///////////

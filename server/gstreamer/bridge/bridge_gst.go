@@ -1,4 +1,4 @@
-//go:build gst
+//go:build gst && !slim
 
 package bridge
 

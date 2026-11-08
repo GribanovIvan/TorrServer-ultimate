@@ -1,3 +1,5 @@
+//go:build !slim
+
 package tgbot
 
 func tr(userID int64, key string) string {

@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
-
-	"server/tgbot"
 
 	"server/log"
 	"server/netbind"
@@ -27,38 +24,8 @@ func Start() error {
 	if err := settings.InitSets(settings.Args.RDB, settings.Args.SearchWA); err != nil {
 		return err
 	}
-	// https checks
-	if settings.Args.Ssl {
-		// set settings ssl enabled
-		settings.Ssl = settings.Args.Ssl
-		if settings.Args.SslPort == "" {
-			dbSSlPort := strconv.Itoa(settings.BTsets.SslPort)
-			if dbSSlPort != "0" {
-				settings.Args.SslPort = dbSSlPort
-				log.TLogln("HTTPS port", dbSSlPort, "(from settings; override with --sslport)")
-			} else {
-				settings.Args.SslPort = settings.DefaultSslPort
-				log.TLogln("HTTPS port", settings.DefaultSslPort, "(default)")
-			}
-		} else { // store ssl port from params to DB
-			dbSSlPort, err := strconv.Atoi(settings.Args.SslPort)
-			if err == nil {
-				settings.BTsets.SslPort = dbSSlPort
-			}
-			log.TLogln("HTTPS port", settings.Args.SslPort, "(from --sslport, saved to settings)")
-		}
-		// check if ssl cert and key files exist
-		if settings.Args.SslCert != "" && settings.Args.SslKey != "" {
-			// set settings ssl cert and key files
-			settings.BTsets.SslCert = settings.Args.SslCert
-			settings.BTsets.SslKey = settings.Args.SslKey
-		}
-		log.TLogln("Check web ssl port", settings.Args.SslPort)
-		if err := netbind.CheckPort(netbind.TCPHosts(settings.Args.IPs), settings.Args.SslPort); err != nil {
-			msg := fmt.Sprintf("port %s already in use! Please set different ssl port for HTTPS", settings.Args.SslPort)
-			log.TLogln(msg)
-			return errors.New(msg)
-		}
+	if err := prepareSSL(); err != nil {
+		return err
 	}
 	// http checks
 	if settings.Args.Port == "" {
@@ -81,16 +48,12 @@ func Start() error {
 	settings.SslPort = settings.Args.SslPort
 	settings.IPs = settings.Args.IPs
 
-	if settings.Args.TGToken != "" {
-		if err := tgbot.Start(settings.Args.TGToken); err != nil {
-			log.TLogln("tg bot start failed", err)
-		}
-	}
+	startTelegramBot()
 	return web.Start()
 }
 
 func cleanCache() {
-	if !settings.BTsets.UseDisk || settings.BTsets.TorrentsSavePath == "/" || settings.BTsets.TorrentsSavePath == "" {
+	if !settings.DiskCache || !settings.BTsets.UseDisk || settings.BTsets.TorrentsSavePath == "/" || settings.BTsets.TorrentsSavePath == "" {
 		return
 	}
 

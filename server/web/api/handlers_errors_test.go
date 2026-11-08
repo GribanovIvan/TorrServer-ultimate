@@ -63,7 +63,9 @@ func TestHandlerErrorPaths(t *testing.T) {
 	r.GET("/stream/*fname", stream)
 	r.GET("/noauth", streamNoAuth)
 	r.GET("/play/:hash/:id", play)
-	r.GET("/subs/:hash/:id", subsTracks)
+	if testSubsHandler != nil {
+		r.GET("/subs/:hash/:id", testSubsHandler)
+	}
 
 	do := func(method, path, body string, anon bool) *httptest.ResponseRecorder {
 		t.Helper()
@@ -139,6 +141,9 @@ func TestHandlerErrorPaths(t *testing.T) {
 	})
 
 	t.Run("subs", func(t *testing.T) {
+		if testSubsHandler == nil {
+			t.Skip("no subtitles API in this profile")
+		}
 		want("unknown hash", do(http.MethodGet, "/subs/"+unknown+"/1", "", false), http.StatusNotFound)
 		want("unknown hash anonymous", do(http.MethodGet, "/subs/"+unknown+"/1", "", true), http.StatusUnauthorized)
 		want("bad hash", do(http.MethodGet, "/subs/zzz/1", "", false), http.StatusInternalServerError)
@@ -152,14 +157,4 @@ func TestHandlerErrorPaths(t *testing.T) {
 		}
 		want("get after wipe", do(http.MethodPost, "/torrents", `{"action":"get","hash":"`+hash+`"}`, false), http.StatusNotFound)
 	})
-}
-
-// restartServices applies settings to DLNA, Bonjour and rutor. With all three
-// off it only stops them; it must not bind a port or leave a goroutine.
-func TestRestartServicesWithEverythingOff(t *testing.T) {
-	offlinetest.Prepare(t)
-	set.BTsets.EnableDLNA = false
-	set.BTsets.EnableBonjour = false
-	set.BTsets.EnableRutorSearch = false
-	restartServices()
 }
