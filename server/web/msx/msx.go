@@ -148,6 +148,7 @@ func SetupRoute(r gin.IRouter) {
 		if r, e := http.Get("https://v2.sg.media-imdb.com/suggestion/h/" + i); e != nil || r.StatusCode != http.StatusOK || j {
 			rsp(c, r, e)
 		} else {
+			defer r.Body.Close()
 			var j struct {
 				D []struct{ I struct{ ImageUrl string } }
 			}

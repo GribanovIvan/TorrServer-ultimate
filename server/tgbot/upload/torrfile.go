@@ -105,8 +105,17 @@ func (t *TorrFile) progress() (offset, size int64) {
 }
 
 func (t *TorrFile) Close() {
-	if t.reader != nil {
-		t.reader.Close()
-		t.reader = nil
+	if t.reader == nil {
+		return
 	}
+	// Reader.Close alone leaves the reader registered in the torrent cache:
+	// it keeps counting as an active reader, pins its window in RAM, halves
+	// the window of later players and blocks the torrent from ever expiring.
+	// Torrent.CloseReader unregisters it and re-arms the expiry timer.
+	if tor := torr.GetTorrent(t.hash); tor != nil {
+		tor.CloseReader(t.reader)
+	} else {
+		t.reader.Close()
+	}
+	t.reader = nil
 }
