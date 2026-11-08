@@ -50,7 +50,7 @@ func setupPerUser(t *testing.T, enabled bool) perUserMemDB {
 	t.Cleanup(func() { tdb, BTsets, Args, Path, ReadOnly = oldDB, oldSets, oldArgs, oldPath, oldRO })
 	db := perUserMemDB{}
 	tdb = db
-	BTsets = &BTSets{PerUserData: enabled, TrackTimecode: true}
+	BTsets = &BTSets{FullSets: FullSets{PerUserData: enabled}, TrackTimecode: true}
 	Args = &ExecArgs{}
 	ReadOnly = false
 	Path = t.TempDir()

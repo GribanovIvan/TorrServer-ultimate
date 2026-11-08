@@ -96,7 +96,6 @@ type BTSets struct {
 
 	// FS
 	ShowFSActiveTorr bool
-	PerUserData      bool // fork: per-user data separation, see peruser.go
 
 	// Storage preferences
 	StoreSettingsInJson bool
@@ -107,6 +106,10 @@ type BTSets struct {
 
 	// M3U
 	MergeAllM3U bool // merge all torrents files into a single all.m3u playlist
+
+	// FullSets holds the settings only the full profile has (btsets_full.go);
+	// its fields are flattened into the same JSON object.
+	FullSets
 }
 
 // String is the log form. API keys are masked: the client config is logged on
