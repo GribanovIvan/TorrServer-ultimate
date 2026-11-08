@@ -60,6 +60,7 @@ type args struct {
 	HTTPSOnly   bool     `arg:"--https-only" help:"with --ssl, don't open the plain HTTP port (--port): everything is served over HTTPS only. Players and TVs need a trusted certificate"`
 	HTTPMedia   bool     `arg:"--http-media" help:"with --force-https, keep serving media URLs (/stream, /play, playlists) over plain HTTP for players and TVs that can't use HTTPS. Stream URLs and Basic auth credentials then travel unencrypted: use on trusted networks only"`
 	Pprof       bool     `arg:"--pprof" help:"enable /debug/pprof (pair with -a; exposes heap)"`
+	DownloadDir string   `arg:"-x,--downloaddir" help:"serve files already downloaded here (e.g. by qBittorrent) instead of streaming them; the path is <dir>/<torrent file path>, and only a file of the exact size is used, so keep incomplete files out of it"`
 }
 
 func (args) Version() string {
@@ -175,6 +176,8 @@ func run(argv []string) int {
 			settings.MaxSize = maxSize
 		}
 	}
+
+	settings.DownloadDir = params.DownloadDir
 
 	if params.ProxyURL != "" && params.ProxyMode == "" {
 		params.ProxyMode = "tracker" // default

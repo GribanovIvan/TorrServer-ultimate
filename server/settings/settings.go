@@ -77,6 +77,8 @@ var (
 	PubIPv6  string
 	TorAddr  string
 	MaxSize  int64
+	// DownloadDir serves files already on disk instead of the swarm (--downloaddir).
+	DownloadDir string
 	// Embedded is true when TorrServer runs in-process (iOS XCFramework).
 	// Failures must return errors instead of os.Exit so the host app stays alive.
 	Embedded bool
