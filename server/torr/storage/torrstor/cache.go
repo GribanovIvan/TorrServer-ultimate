@@ -213,6 +213,17 @@ func (c *Cache) Close() error {
 
 	c.storage.removeCache(c.hash)
 
+	// Close retained handles before Windows removes cache files. The closed
+	// flag above prevents a late operation from reopening a retained handle.
+	var closeErr error
+	for _, piece := range c.pieces {
+		if piece != nil && piece.dPiece != nil {
+			if err := piece.dPiece.Close(); err != nil && closeErr == nil {
+				closeErr = err
+			}
+		}
+	}
+
 	if settings.BTsets.RemoveCacheOnDrop {
 		name := filepath.Join(settings.BTsets.TorrentsSavePath, c.hash.HexString())
 		if name != "" && name != "/" {
@@ -243,7 +254,7 @@ func (c *Cache) Close() error {
 	c.filled.Store(0)
 	c.muRemove.Unlock()
 	for _, path := range diskPaths {
-		_ = os.Remove(path)
+		closeAndRemove(path)
 	}
 
 	c.muReaders.Lock()
@@ -255,7 +266,7 @@ func (c *Cache) Close() error {
 	c.muActive.Unlock()
 
 	freeOSMem()
-	return nil
+	return closeErr
 }
 
 // freeOSMem is replaced in tests.
@@ -475,7 +486,7 @@ func (c *Cache) cleanPieces() {
 	c.muRemove.Unlock()
 
 	for _, path := range diskPaths {
-		_ = os.Remove(path)
+		closeAndRemove(path)
 	}
 	for _, p := range evicted {
 		updatePieceCompletion(p)

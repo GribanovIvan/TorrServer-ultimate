@@ -1,8 +1,6 @@
 package torrstor
 
 import (
-	"os"
-
 	"server/settings"
 
 	"github.com/anacrolix/torrent/storage"
@@ -131,13 +129,13 @@ func (p *Piece) Completion() storage.Completion {
 
 func (p *Piece) Release() {
 	if path := p.releaseBuffers(); path != "" {
-		_ = os.Remove(path)
+		closeAndRemove(path)
 	}
 	updatePieceCompletion(p)
 }
 
 // releaseBuffers clears piece bytes under the piece mutex.
-// For disk pieces it returns the file path so the caller can os.Remove after
+// For disk pieces it returns the file path so the caller can closeAndRemove after
 // dropping muRemove (Close/cleanPieces must not delete under that lock).
 func (p *Piece) releaseBuffers() (diskPath string) {
 	if p == nil {
@@ -195,7 +193,7 @@ func evictPartial(p *Piece) {
 		}
 	})
 	if path != "" {
-		_ = os.Remove(path)
+		closeAndRemove(path)
 	}
 }
 

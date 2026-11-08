@@ -14,7 +14,9 @@ import (
 type DiskPiece struct {
 	piece *Piece
 
-	name string
+	name     string
+	file     *os.File
+	writable bool
 
 	mu sync.RWMutex
 }
@@ -42,12 +44,11 @@ func (p *DiskPiece) WriteAt(b []byte, off int64) (n int, err error) {
 	if p.piece.cache.isClosed.Load() {
 		return 0, os.ErrNotExist
 	}
-	ff, err := os.OpenFile(p.name, os.O_RDWR|os.O_CREATE, 0o666)
+	ff, err := p.openLocked(true)
 	if err != nil {
 		log.TLogln("Error open file:", err)
 		return 0, err
 	}
-	defer func() { _ = ff.Close() }()
 	n, err = ff.WriteAt(b, off)
 
 	// Accumulate: chunks arrive out of order, so a high-water mark would count
@@ -71,7 +72,7 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 	if p.piece.cache.isClosed.Load() {
 		return 0, os.ErrNotExist
 	}
-	ff, err := os.OpenFile(p.name, os.O_RDONLY, 0o666)
+	ff, err := p.openLocked(false)
 	if os.IsNotExist(err) {
 		return 0, err
 	}
@@ -79,8 +80,6 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 		log.TLogln("Error open file:", err)
 		return 0, err
 	}
-	defer func() { _ = ff.Close() }()
-
 	n, err = ff.ReadAt(b, off)
 
 	p.piece.Accessed = time.Now().Unix()
@@ -90,12 +89,60 @@ func (p *DiskPiece) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, err
 }
 
+// Keep handles across small torrent chunks; callers serialize access with mu.
+func (p *DiskPiece) openLocked(write bool) (*os.File, error) {
+	if p.file != nil && (!write || p.writable) {
+		return p.file, nil
+	}
+	if err := p.closeLocked(); err != nil {
+		return nil, err
+	}
+	flags := os.O_RDONLY
+	if write {
+		flags = os.O_RDWR | os.O_CREATE
+	}
+	file, err := os.OpenFile(p.name, flags, 0o666)
+	if err != nil {
+		return nil, err
+	}
+	p.file, p.writable = file, write
+	return file, nil
+}
+
+func (p *DiskPiece) closeLocked() error {
+	if p.file == nil {
+		return nil
+	}
+	file := p.file
+	p.file, p.writable = nil, false
+	return file.Close()
+}
+
+// Close retains downloaded bytes; Release evicts them.
+func (p *DiskPiece) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.closeLocked()
+}
+
+// detachedFiles holds handles taken off pieces by releaseState until
+// closeAndRemove runs: releaseState can run under Cache.muRemove, and neither
+// close(2) nor unlink may happen while that is held (AGENTS). Windows needs the
+// handle closed before the file can be removed, hence close then unlink here.
+var detachedFiles sync.Map // name string -> *os.File
+
 // releaseState clears Size/Complete and returns the on-disk path.
-// Callers that hold Cache.muRemove must os.Remove only after unlocking.
+// Callers that hold Cache.muRemove must call closeAndRemove only after unlocking.
 func (p *DiskPiece) releaseState() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if f := p.file; f != nil {
+		p.file, p.writable = nil, false
+		if old, loaded := detachedFiles.Swap(p.name, f); loaded {
+			_ = old.(*os.File).Close()
+		}
+	}
 	name := p.name
 	p.piece.Size = 0
 	p.piece.Complete = false
@@ -103,9 +150,17 @@ func (p *DiskPiece) releaseState() string {
 	return name
 }
 
+// closeAndRemove closes a handle detached by releaseState, then unlinks the file.
+func closeAndRemove(name string) {
+	if f, ok := detachedFiles.LoadAndDelete(name); ok {
+		_ = f.(*os.File).Close()
+	}
+	_ = os.Remove(name)
+}
+
 func (p *DiskPiece) Release() {
 	name := p.releaseState()
 	if name != "" {
-		_ = os.Remove(name)
+		closeAndRemove(name)
 	}
 }
