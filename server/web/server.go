@@ -119,10 +119,18 @@ func Start() error {
 	}
 
 	if settings.BTsets.EnableDLNA {
-		dlna.Start()
+		if netbind.HasTCP(settings.IPs) {
+			dlna.Start()
+		} else {
+			log.TLogln("DLNA is off: no TCP --ip to serve it on (Unix socket only)")
+		}
 	}
 	if settings.BTsets.EnableBonjour {
-		bonjour.Start()
+		if netbind.HasTCP(settings.IPs) {
+			bonjour.Start()
+		} else {
+			log.TLogln("Bonjour is off: no TCP --ip to advertise (Unix socket only)")
+		}
 	}
 
 	// Auto-mount FUSE filesystem if enabled
@@ -152,12 +160,16 @@ func Start() error {
 // startServers binds the HTTP and (with --ssl) HTTPS ports and starts serving h.
 // Plain HTTP sent to the HTTPS port is redirected to https://.
 func startServers(h http.Handler) error {
-	if settings.Ssl {
+	tcpSsl := settings.Ssl && netbind.HasTCP(settings.IPs)
+	if settings.Ssl && !tcpSsl {
+		log.TLogln("--ssl: no TCP --ip to bind, HTTPS is not opened (Unix socket serves plain HTTP)")
+	}
+	if tcpSsl {
 		loader, err := sslcerts.NewLoader(sslCertPaths)
 		if err != nil {
 			return fmt.Errorf("load ssl cert: %w", err)
 		}
-		ln, err := netbind.Listen(settings.IPs, settings.SslPort)
+		ln, err := netbind.Listen(netbind.TCPHosts(settings.IPs), settings.SslPort)
 		if err != nil {
 			return fmt.Errorf("https listen: %w", err)
 		}
@@ -240,6 +252,9 @@ func startInternalServer(h http.Handler) {
 func certIPs() []string {
 	var bound []string
 	for _, ip := range settings.IPs {
+		if netbind.IsUnix(ip) {
+			continue
+		}
 		if parsed := net.ParseIP(ip); parsed != nil && !parsed.IsUnspecified() {
 			bound = append(bound, ip)
 		} else {

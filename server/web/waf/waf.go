@@ -63,6 +63,11 @@ func ban(c *gin.Context) {
 }
 
 func clientIP(c *gin.Context) net.IP {
+	// A Unix-socket peer has no IP ("@" or empty RemoteAddr): it is a local
+	// client, same as loopback TCP behind a reverse proxy.
+	if c.Request.RemoteAddr == "" || c.Request.RemoteAddr == "@" {
+		return net.IPv4(127, 0, 0, 1)
+	}
 	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
 	if err != nil {
 		// RemoteAddr without port (rare)

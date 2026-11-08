@@ -54,7 +54,7 @@ func Start() error {
 			settings.BTsets.SslKey = settings.Args.SslKey
 		}
 		log.TLogln("Check web ssl port", settings.Args.SslPort)
-		if err := netbind.CheckPort(settings.Args.IPs, settings.Args.SslPort); err != nil {
+		if err := netbind.CheckPort(netbind.TCPHosts(settings.Args.IPs), settings.Args.SslPort); err != nil {
 			msg := fmt.Sprintf("port %s already in use! Please set different ssl port for HTTPS", settings.Args.SslPort)
 			log.TLogln(msg)
 			return errors.New(msg)

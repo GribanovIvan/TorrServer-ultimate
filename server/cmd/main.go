@@ -33,7 +33,7 @@ import (
 
 type args struct {
 	Port        string   `arg:"-p" help:"web server port (default 8090)"`
-	IPs         []string `arg:"-i,--ip,separate" help:"web server bind addr (repeatable; default empty binds all interfaces)"`
+	IPs         []string `arg:"-i,--ip,separate" help:"web server bind addr, or unix:/path/to.sock for a Unix socket (repeatable; default empty binds all interfaces)"`
 	Ssl         bool     `help:"enables https"`
 	SslPort     string   `help:"web server ssl port, If not set, will be set to default 8091 or taken from db(if stored previously). Accepted if --ssl enabled."`
 	SslCert     string   `help:"path to ssl cert file. If not set, will be taken from db(if stored previously) or default self-signed certificate/key will be generated. Accepted if --ssl enabled."`

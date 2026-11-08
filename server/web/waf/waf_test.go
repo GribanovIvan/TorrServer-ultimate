@@ -480,3 +480,15 @@ func TestConcurrentUpdatesNeverMixConfigurations(t *testing.T) {
 		}
 	})
 }
+
+func TestClientIPUnixSocketPeerIsLoopback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	for _, addr := range []string{"@", ""} {
+		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+		c.Request.RemoteAddr = addr
+		if ip := clientIP(c); ip == nil || !ip.IsLoopback() {
+			t.Fatalf("clientIP(%q) = %v, want loopback", addr, ip)
+		}
+	}
+}

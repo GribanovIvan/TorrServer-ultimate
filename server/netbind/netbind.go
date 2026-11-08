@@ -3,8 +3,75 @@ package netbind
 import (
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"sync"
+	"time"
 )
+
+// unixPrefix marks a bind host as a Unix-domain socket path: unix:/run/ts.sock
+// (--ip unix:/run/ts.sock). Other hosts are TCP.
+const unixPrefix = "unix:"
+
+// IsUnix reports whether host names a Unix-domain socket.
+func IsUnix(host string) bool {
+	return strings.HasPrefix(host, unixPrefix)
+}
+
+func unixPath(host string) string {
+	return strings.TrimPrefix(host, unixPrefix)
+}
+
+// HasTCP reports whether binding hosts opens at least one TCP listener.
+// An empty list binds all interfaces, so it counts.
+func HasTCP(hosts []string) bool {
+	if len(hosts) == 0 {
+		return true
+	}
+	for _, h := range hosts {
+		if !IsUnix(h) {
+			return true
+		}
+	}
+	return false
+}
+
+// TCPHosts returns hosts without the Unix-socket entries.
+func TCPHosts(hosts []string) []string {
+	out := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		if !IsUnix(h) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// listenUnix binds a socket path, replacing a stale socket left by a crash.
+// A path with a live listener, or a non-socket file, is an error.
+func listenUnix(path string) (net.Listener, error) {
+	if path == "" {
+		return nil, fmt.Errorf("unix socket: empty path")
+	}
+	if fi, err := os.Lstat(path); err == nil {
+		if fi.Mode()&os.ModeSocket == 0 {
+			return nil, fmt.Errorf("%s exists and is not a socket", path)
+		}
+		if conn, err := net.DialTimeout("unix", path, time.Second); err == nil {
+			_ = conn.Close()
+			return nil, fmt.Errorf("%s: already in use", path)
+		}
+		_ = os.Remove(path)
+	}
+	return net.Listen("unix", path)
+}
+
+func listenHost(host, port string) (net.Listener, error) {
+	if IsUnix(host) {
+		return listenUnix(unixPath(host))
+	}
+	return net.Listen("tcp", Addr(host, port))
+}
 
 // Normalize returns unique bind hosts. An empty list means all interfaces once.
 func Normalize(ips []string) []string {
@@ -25,17 +92,21 @@ func Normalize(ips []string) []string {
 
 // Addr formats host:port for net.Listen.
 func Addr(host, port string) string {
+	if IsUnix(host) {
+		return host
+	}
 	if host == "" {
 		return ":" + port
 	}
 	return net.JoinHostPort(host, port)
 }
 
-// CheckPort verifies that TCP port is available on every bind host.
+// CheckPort verifies that TCP port is available on every bind host; a Unix path
+// is checked for being free the same way.
 func CheckPort(hosts []string, port string) error {
 	for _, host := range Normalize(hosts) {
 		addr := Addr(host, port)
-		l, err := net.Listen("tcp", addr)
+		l, err := listenHost(host, port)
 		if err != nil {
 			return fmt.Errorf("%s: %w", addr, err)
 		}
@@ -44,11 +115,11 @@ func CheckPort(hosts []string, port string) error {
 	return nil
 }
 
-// Listen binds TCP on each host and returns a listener that accepts from all of them.
+// Listen binds TCP (or a Unix socket, see unixPrefix) on each host and returns a listener that accepts from all of them.
 func Listen(hosts []string, port string) (net.Listener, error) {
 	hosts = Normalize(hosts)
 	if len(hosts) == 1 {
-		return net.Listen("tcp", Addr(hosts[0], port))
+		return listenHost(hosts[0], port)
 	}
 
 	ml := &multiListener{
@@ -56,7 +127,7 @@ func Listen(hosts []string, port string) (net.Listener, error) {
 		errs:  make(chan error, len(hosts)),
 	}
 	for _, host := range hosts {
-		l, err := net.Listen("tcp", Addr(host, port))
+		l, err := listenHost(host, port)
 		if err != nil {
 			_ = ml.Close()
 			return nil, err

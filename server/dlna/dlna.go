@@ -66,15 +66,16 @@ func Start() {
 		}(),
 		HTTPConn: func() net.Listener {
 			port := 9080
+			hosts := netbind.TCPHosts(settings.IPs)
 			for {
 				logger.Levelf(log.Info, "Check dlna port %d", port)
-				if err := netbind.CheckPort(settings.IPs, strconv.Itoa(port)); err == nil {
+				if err := netbind.CheckPort(hosts, strconv.Itoa(port)); err == nil {
 					break
 				}
 				port++
 			}
 			logger.Levelf(log.Info, "Set dlna port %d", port)
-			conn, err := listenBind(settings.IPs, strconv.Itoa(port))
+			conn, err := listenBind(hosts, strconv.Itoa(port))
 			if err != nil {
 				logger.Levelf(log.Error, "%v", err)
 				if settings.Embedded {
