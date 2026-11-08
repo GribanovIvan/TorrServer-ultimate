@@ -64,7 +64,7 @@ type args struct {
 }
 
 func (args) Version() string {
-	return "TorrServer " + version.Version
+	return "TorrServer " + version.Full()
 }
 
 var params args
@@ -112,7 +112,7 @@ func run(argv []string) int {
 	log.Init(params.LogPath, params.WebLogPath)
 
 	log.TLogln("=========== START ===========")
-	log.TLogln("TorrServer", version.Version+",", runtime.Version()+",", "CPU Num:", runtime.NumCPU())
+	log.TLogln("TorrServer", version.Full()+",", runtime.Version()+",", "CPU Num:", runtime.NumCPU())
 	if msg := configureCARoots(); msg != "" {
 		log.TLogln(msg)
 	}

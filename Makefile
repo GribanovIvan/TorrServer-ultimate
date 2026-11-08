@@ -218,6 +218,23 @@ android: $(prereqs) guard-ndk ## Build Android binary (release config)
 	@echo "Building Android binary  GOARCH=$(GOARCH)  GOARM=$(GOARM)..."
 	@GOOS=android $(GORELEASER_RUN) $(GORELEASER_DOCKER_ANDROID_ARGS) build $(GR_RELEASE_CONFIG) $(GORELEASER_COMMON_FLAGS) $(GORELEASER_BUILD_FLAGS) $(SKIP_BEFORE_FLAG) --id=android
 
+# ── Ultimate build profiles (Go build tags, plain go build) ─────────────────
+# ultimate       default profile, close to upstream MatriX
+# ultimate-slim  -tags slim: a headless streamer, only what our deployment uses
+# ultimate-full  -tags full: everything the forks offer
+# slim and full exclude each other (the build stops if both tags are given).
+ULTIMATE_LDFLAGS ?= -s -w -checklinkname=0
+_ultimate_build = cd server && CGO_ENABLED=0 $(GO_BINARY) build -tags "nosqlite $(1)" -trimpath -ldflags "$(ULTIMATE_LDFLAGS)" -o $(abspath $(DIST_DIR))/$(2) ./cmd
+
+ultimate: ## Ultimate default profile -> dist/TorrServer-ultimate
+	$(call _ultimate_build,,TorrServer-ultimate)
+
+ultimate-slim: ## Ultimate slim profile -> dist/TorrServer-ultimate-slim
+	$(call _ultimate_build,slim,TorrServer-ultimate-slim)
+
+ultimate-full: ## Ultimate full profile -> dist/TorrServer-ultimate-full
+	$(call _ultimate_build,full,TorrServer-ultimate-full)
+
 dist: $(prereqs) ## Local snapshot — $(GORELEASER_CONFIG), no publish
 	@echo "Local snapshot ($(GORELEASER_CONFIG))..."
 	@$(GORELEASER_RUN) release $(GR_CONFIG) $(GORELEASER_COMMON_FLAGS) $(SKIP_BEFORE_FLAG) $(GORELEASER_SKIP_FLAG) --snapshot --skip=publish
@@ -533,6 +550,9 @@ help:
 		tgt "build-one" "Single platform  TARGET=linux_amd64"; \
 		tgt "build-gst" "All binary-gst platforms (local config)"; \
 		tgt "build-gst-one" "Single gst build  TARGET=linux_amd64"; \
+		tgt "ultimate" "Default profile (~ upstream MatriX)"; \
+		tgt "ultimate-slim" "Slim profile (-tags slim)"; \
+		tgt "ultimate-full" "Full profile (-tags full)"; \
 		sec "Release"; \
 		tgt "dist" "Local snapshot — $(GORELEASER_CONFIG)"; \
 		tgt "dist-full" "Full snapshot — $(GORELEASER_RELEASE_CONFIG)"; \
@@ -599,7 +619,7 @@ help:
 		printf "\n"; \
 	'
 
-.PHONY: binary binary-gst gst android dist dist-full release docker _docker_image _docker_build_linux docker-start docker-start-release docker-push docker-clean install start start-build \
+.PHONY: ultimate ultimate-slim ultimate-full binary binary-gst gst android dist dist-full release docker _docker_image _docker_build_linux docker-start docker-start-release docker-push docker-clean install start start-build \
         build build-one build-gst build-gst-one ls-dist checksums version healthcheck deps show-config \
         verify-linux-static verify-linux-gst \
         webgen webgen-clean swag update update-clean run check check-release clean clean-web clean-all clean-cache help \

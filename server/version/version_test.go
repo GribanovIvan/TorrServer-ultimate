@@ -37,3 +37,13 @@ func TestGetTorrentVersion(t *testing.T) {
 		t.Fatalf("ua %q", gotUA)
 	}
 }
+
+func TestFullCarriesProfile(t *testing.T) {
+	want := Version
+	if Profile != "" {
+		want += "-" + Profile
+	}
+	if got := Full(); got != want {
+		t.Fatalf("Full() = %q, want %q", got, want)
+	}
+}
