@@ -14,3 +14,9 @@ func setupFullRoutes(authorized *gin.RouterGroup) {
 		mountPprof(authorized)
 	}
 }
+
+// shutdownEnabled is false with --disable-shutdown, for servers shared with
+// people who must not stop them (idea from reyohoho/TorrServer, 1496fa0a).
+func shutdownEnabled() bool {
+	return sets.Args == nil || !sets.Args.DisableShutdown
+}

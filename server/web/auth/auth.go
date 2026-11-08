@@ -18,15 +18,15 @@ func SetupAuth(engine *gin.Engine) {
 	if !settings.HttpAuth {
 		return
 	}
-	accs := getAccounts()
-	if accs == nil {
-		return
-	}
-	engine.Use(BasicAuth(accs))
+	setupAccounts(engine)
 }
 
 func getAccounts() gin.Accounts {
-	buf, err := os.ReadFile(filepath.Join(settings.Path, "accs.db"))
+	return readAccounts(filepath.Join(settings.Path, "accs.db"))
+}
+
+func readAccounts(path string) gin.Accounts {
+	buf, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
@@ -57,7 +57,12 @@ func (a authPairs) searchCredential(authValue string) (string, bool) {
 }
 
 func BasicAuth(accounts gin.Accounts) gin.HandlerFunc {
-	pairs := processAccounts(accounts)
+	return pairsAuth(processAccounts(accounts))
+}
+
+// pairsAuth marks the request as needing auth and sets the user whose
+// credentials it carries.
+func pairsAuth(pairs authPairs) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("auth_required", true)
 

@@ -11,12 +11,14 @@ import (
 
 // fullArgs are the flags only the full profile has.
 type fullArgs struct {
-	Pprof       bool   `arg:"--pprof" help:"enable /debug/pprof (pair with -a; exposes heap)"`
-	DownloadDir string `arg:"-x,--downloaddir" help:"serve files already downloaded here (e.g. by qBittorrent) instead of streaming them; the path is <dir>/<torrent file path>, and only a file of the exact size is used, so keep incomplete files out of it"`
+	Pprof           bool   `arg:"--pprof" help:"enable /debug/pprof (pair with -a; exposes heap)"`
+	DisableShutdown bool   `arg:"--disable-shutdown" help:"don't serve /shutdown: nobody can stop the server over HTTP"`
+	DownloadDir     string `arg:"-x,--downloaddir" help:"serve files already downloaded here (e.g. by qBittorrent) instead of streaming them; the path is <dir>/<torrent file path>, and only a file of the exact size is used, so keep incomplete files out of it"`
 }
 
 func (f fullArgs) apply(a *settings.ExecArgs) {
 	a.Pprof = f.Pprof
+	a.DisableShutdown = f.DisableShutdown
 	settings.DownloadDir = f.DownloadDir
 }
 

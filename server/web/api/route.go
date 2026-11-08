@@ -16,8 +16,10 @@ type requestI struct {
 func SetupRoute(route gin.IRouter) {
 	authorized := route.Group("/", auth.CheckAuth())
 
-	authorized.GET("/shutdown", shutdown)
-	authorized.GET("/shutdown/*reason", shutdown)
+	if shutdownEnabled() {
+		authorized.GET("/shutdown", shutdown)
+		authorized.GET("/shutdown/*reason", shutdown)
+	}
 
 	authorized.POST("/settings", settings)
 
