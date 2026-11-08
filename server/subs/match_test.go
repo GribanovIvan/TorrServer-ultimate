@@ -1,4 +1,4 @@
-//go:build !slim
+//go:build !slim && !full
 
 package subs
 

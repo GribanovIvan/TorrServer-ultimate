@@ -9,7 +9,11 @@ import (
 )
 
 // Routes only the full profile serves.
-func setupFullRoutes(authorized *gin.RouterGroup) {
+func setupFullRoutes(route gin.IRouter, authorized *gin.RouterGroup) {
+	// External audio tracks of a video (sirin-media/TorrServer-NG). Like
+	// /subs it checks auth itself: players fetch it without credentials.
+	route.GET("/audio/:hash/:id", audioTracks)
+
 	if sets.Args != nil && sets.Args.Pprof {
 		mountPprof(authorized)
 	}

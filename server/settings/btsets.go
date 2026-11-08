@@ -183,6 +183,8 @@ func SetBTSets(sets *BTSets) {
 		sets.PreloadCache = 100
 	}
 
+	sets.normalizeFull()
+
 	if sets.TorrentsSavePath == "" || !DiskCache {
 		sets.UseDisk = false
 	} else if sets.UseDisk {
@@ -232,6 +234,7 @@ func SetDefaultConfig() {
 	sets.LPDIPv6 = false
 	sets.EnableBonjour = true
 	sets.MergeAllM3U = false
+	sets.normalizeFull()
 	// Set default TMDB settings
 	sets.TMDBSettings = TMDBConfig{
 		APIKey:     "",
@@ -261,6 +264,8 @@ func loadBTSets() {
 			if !DiskCache {
 				BTsets.UseDisk = false
 			}
+			// Configs that predate the full-only settings have no values for them.
+			BTsets.normalizeFull()
 			// Set default TMDB settings if missing (for existing configs)
 			if BTsets.TMDBSettings.APIURL == "" {
 				BTsets.TMDBSettings = TMDBConfig{
