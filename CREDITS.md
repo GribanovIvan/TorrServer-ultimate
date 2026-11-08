@@ -27,7 +27,7 @@
 - **etidart/TorrServer-slim**: сам форк (видалено вебінтерфейс, авторизацію, дисковий кеш, DLNA; позаду на 552).
 - **VictorFedorov**: решта (те, що вже є в lampac, як-от звільнення буферів при `Close`, deadlock `CloseReader`, pprof, захист `OpenTorrent`; `Connection: close` лишено як у lampac).
 - **sirin-media/TorrServer-NG**: офлайн-режим із квотами і ротацією (~3000 рядків, вбудований у життєвий цикл торента, сховище й API, які в lampac переписані); зміни GStreamer (зовнішнє аудіо в HLS, кодек ASS у probe); плеєр і JASSUB — старий вебінтерфейс.
-- **Fktrcfylh/TorrServer-Stash**: попереднє завантаження на NAS через Transmission/qBittorrent — змінює семантику `RemTorrent` (помилка, якщо віддалений клієнт не відповів) і коди відповідей `/torrents` у кількох місцях ядра; кандидат на наступний порт.
+- **Fktrcfylh/TorrServer-Stash**: попереднє завантаження на NAS через Transmission/qBittorrent — змінює семантику `RemTorrent` (помилка, якщо віддалений клієнт не відповів) і коди відповідей `/torrents` у кількох місцях ядра; власнику не потрібно.
 - **mx57/TorrServer**: перетворення SRT/ASS у WebVTT зроблено в клієнті старого вебінтерфейсу; у lampac це вже робить сервер (`subs.ToVTT`).
 - **LuckyRu/torrserver-manager**: застосунок для Windows і плагін для ТВ (клієнти поза сервером); його форк сервера — виправлення GStreamer на основі MatriX.145.
 - **pxlvoid** (наступна серія наперед) — див. вище, без черги й бюджету homelab не переноситься.
