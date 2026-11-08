@@ -40,6 +40,7 @@ func play(c *gin.Context) {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	requestUser(c, spec.InfoHash.HexString(), lastPreload) // fork: per-user data
 
 	tor := torr.GetTorrent(spec.InfoHash.HexString())
 	if tor == nil && notAuth {
@@ -55,7 +56,7 @@ func play(c *gin.Context) {
 
 	if tor.Stat == state.TorrentInDB {
 		title, poster, category, data := tor.Meta()
-		tor, err = torr.AddTorrent(spec, title, poster, data, category)
+		tor, err = torr.AddTorrentForUser(currentUser(c), spec, title, poster, data, category)
 		if err != nil {
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return

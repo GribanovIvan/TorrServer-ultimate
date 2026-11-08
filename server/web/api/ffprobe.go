@@ -61,6 +61,7 @@ func ffp(c *gin.Context) {
 		return
 	}
 
+	requestUser(c, hash, "") // fork: per-user data
 	link := sets.LoopbackBaseURL() + "/play/" + hash + "/" + indexStr
 
 	// No BTServer or Torrent lock is held across this call. ffprobe dials

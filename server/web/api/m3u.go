@@ -40,7 +40,8 @@ import (
 //	@Success		200	{file}	file
 //	@Router			/playlistall/all.m3u [get]
 func allPlayList(c *gin.Context) {
-	torrs := torr.ListTorrent()
+	user := currentUser(c)                 // per-user data (full profile)
+	torrs := torr.ListTorrentForUser(user) // per-user data (full profile)
 
 	category := c.Query("category")
 	search := c.Query("search")
@@ -74,12 +75,12 @@ func allPlayList(c *gin.Context) {
 	for _, tr := range torrs {
 		if merge {
 			if st := statusForMergedM3U(tr); st != nil {
-				list += getM3uList(st, host, false, "")
+				list += getM3uList(st, host, false, "", user)
 			} else {
-				list += nestedPlaylistEntry(tr, host)
+				list += nestedPlaylistEntry(tr, host, user)
 			}
 		} else {
-			list += nestedPlaylistEntry(tr, host)
+			list += nestedPlaylistEntry(tr, host, user)
 		}
 		hash += tr.Hash().HexString()
 	}
@@ -87,14 +88,14 @@ func allPlayList(c *gin.Context) {
 	sendM3U(c, "all.m3u", hash, list)
 }
 
-func nestedPlaylistEntry(tr *torr.Torrent, host string) string {
+func nestedPlaylistEntry(tr *torr.Torrent, host, user string) string {
 	title, poster, _, _ := tr.Meta()
 	list := "#EXTINF:0"
 	if poster != "" {
 		list += " tvg-logo=\"" + poster + "\""
 	}
 	list += " type=\"playlist\"," + title + "\n"
-	list += host + "/stream/" + url.PathEscape(title) + ".m3u?link=" + tr.TorrentSpec.InfoHash.HexString() + "&m3u&fn=file.m3u\n"
+	list += host + "/stream/" + url.PathEscape(title) + ".m3u?link=" + tr.TorrentSpec.InfoHash.HexString() + userParam(user) + "&m3u&fn=file.m3u\n"
 	return list
 }
 
@@ -194,7 +195,8 @@ func playList(c *gin.Context) {
 	}
 
 	host := mediaBaseURL(c)
-	list := getM3uList(tor.Status(), host, fromlast, index)
+	user := requestUser(c, tor.Hash().HexString(), lastViewed) // per-user data (full profile)
+	list := getM3uList(tor.Status(), host, fromlast, index, user)
 	list = "#EXTM3U\n" + list
 	name := strings.ReplaceAll(c.Param("fname"), `/`, "") // strip starting / from param
 	if name == "" {
@@ -237,7 +239,7 @@ func sendM3U(c *gin.Context, name, hash string, m3u string) {
 	http.ServeContent(c.Writer, c.Request, name, time.Now(), bytes.NewReader([]byte(m3u)))
 }
 
-func getM3uList(tor *state.TorrentStatus, host string, fromLast bool, startIndex string) string {
+func getM3uList(tor *state.TorrentStatus, host string, fromLast bool, startIndex string, user string) string {
 	m3u := ""
 	from := 0
 	if startIndex != "" {
@@ -251,7 +253,7 @@ func getM3uList(tor *state.TorrentStatus, host string, fromLast bool, startIndex
 			}
 		}
 	} else if fromLast {
-		pos := searchLastPlayed(tor)
+		pos := searchLastPlayed(viewedStatus(tor, user)) // per-user data (full profile)
 		if pos != -1 {
 			from = pos
 		}
@@ -269,12 +271,12 @@ func getM3uList(tor *state.TorrentStatus, host string, fromLast bool, startIndex
 					m3u += "#EXTVLCOPT:input-slave="         // include VLC option for external media
 					for _, namesake := range fileNamesakes { // include play-links to external media, with # splitter
 						sname := filepath.Base(namesake.Path)
-						m3u += host + "/stream/" + url.PathEscape(sname) + "?link=" + tor.Hash + "&index=" + fmt.Sprint(namesake.Id) + "&play#"
+						m3u += host + "/stream/" + url.PathEscape(sname) + "?link=" + tor.Hash + userParam(user) + "&index=" + fmt.Sprint(namesake.Id) + "&play#"
 					}
 					m3u += "\n"
 				}
 				name := filepath.Base(f.Path)
-				m3u += host + "/stream/" + url.PathEscape(name) + "?link=" + tor.Hash + "&index=" + fmt.Sprint(f.Id) + "&play\n"
+				m3u += host + "/stream/" + url.PathEscape(name) + "?link=" + tor.Hash + userParam(user) + "&index=" + fmt.Sprint(f.Id) + "&play\n"
 			}
 		}
 	}

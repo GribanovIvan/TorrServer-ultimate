@@ -24,6 +24,7 @@ func Start() error {
 	if err := settings.InitSets(settings.Args.RDB, settings.Args.SearchWA); err != nil {
 		return err
 	}
+	settings.PerUserStartup() // per-user data separation (full profile)
 	if err := prepareSSL(); err != nil {
 		return err
 	}

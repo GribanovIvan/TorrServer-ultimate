@@ -28,7 +28,7 @@ func BenchmarkPlaylistGeneration(b *testing.B) {
 	b.ResetTimer()
 	var sink string
 	for i := 0; i < b.N; i++ {
-		sink = getM3uList(st, "http://127.0.0.1:8090", false, "")
+		sink = getM3uList(st, "http://127.0.0.1:8090", false, "", "")
 	}
 	if sink == "" {
 		b.Fatal("empty playlist")

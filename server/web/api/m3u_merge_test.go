@@ -72,7 +72,7 @@ func TestStatusForMergedM3U(t *testing.T) {
 		if st := statusForMergedM3U(tr); st != nil {
 			t.Fatalf("got %#v", st)
 		}
-		entry := nestedPlaylistEntry(tr, "http://h")
+		entry := nestedPlaylistEntry(tr, "http://h", "")
 		if !strings.Contains(entry, `type="playlist"`) || !strings.Contains(entry, hash) {
 			t.Fatalf("nested entry: %q", entry)
 		}
@@ -83,7 +83,7 @@ func TestStatusForMergedM3U(t *testing.T) {
 		if st := statusForMergedM3U(tr); st != nil {
 			t.Fatalf("got %#v", st)
 		}
-		entry := nestedPlaylistEntry(tr, "http://h")
+		entry := nestedPlaylistEntry(tr, "http://h", "")
 		if !strings.Contains(entry, `type="playlist"`) || !strings.Contains(entry, hash) {
 			t.Fatalf("nested entry: %q", entry)
 		}

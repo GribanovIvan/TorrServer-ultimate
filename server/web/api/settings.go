@@ -40,7 +40,7 @@ func settings(c *gin.Context) {
 
 	switch req.Action {
 	case "get":
-		c.JSON(200, sets.BTsets)
+		c.JSON(200, settingsForUser(c)) // per-user data (full profile)
 		return
 	case "set":
 		if sets.ReadOnly {

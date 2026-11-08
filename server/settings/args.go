@@ -31,6 +31,8 @@ type ExecArgs struct {
 	Pprof       bool
 	// DisableShutdown drops GET /shutdown (full profile, --disable-shutdown).
 	DisableShutdown bool
+	// PerUserData separates torrents and viewed marks per account (full, --peruserdata).
+	PerUserData bool
 }
 
 var Args *ExecArgs
