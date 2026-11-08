@@ -49,8 +49,13 @@ type Cache struct {
 	// goroutine per dropped torrent.
 	stopWatch chan struct{}
 	muRemove  sync.Mutex
-	torrent   *torrent.Torrent
-	muTor     sync.Mutex
+
+	// verified: pieces that passed the hash check (disk mode), see verified.go.
+	muVerified      sync.Mutex
+	verified        []bool
+	verifiedPending bool
+	torrent         *torrent.Torrent
+	muTor           sync.Mutex
 }
 
 func NewCache(capacity int64, storage *Storage) *Cache {
@@ -87,6 +92,9 @@ func (c *Cache) Init(info *metainfo.Info, hash metainfo.Hash) {
 
 	for i := 0; i < c.pieceCount; i++ {
 		c.pieces[i] = NewPiece(i, c)
+	}
+	if settings.BTsets.UseDisk {
+		c.loadVerified()
 	}
 
 	if c.stopWatch == nil {
@@ -224,7 +232,10 @@ func (c *Cache) Close() error {
 		}
 	}
 
-	if settings.BTsets.RemoveCacheOnDrop {
+	// Keep the verified bitmap on disk for the next open, or drop it with the files.
+	c.flushVerified()
+	removeFiles := settings.BTsets.RemoveCacheOnDrop
+	if removeFiles {
 		name := filepath.Join(settings.BTsets.TorrentsSavePath, c.hash.HexString())
 		if name != "" && name != "/" {
 			for _, v := range c.pieces {
@@ -232,6 +243,7 @@ func (c *Cache) Close() error {
 					_ = os.Remove(v.dPiece.name)
 				}
 			}
+			_ = os.Remove(verifiedPath(c))
 			_ = os.Remove(name)
 		}
 	}
@@ -247,7 +259,9 @@ func (c *Cache) Close() error {
 		if p == nil {
 			continue
 		}
-		if path := p.releaseBuffers(); path != "" {
+		// Buffers go either way; the files only with RemoveCacheOnDrop, so the
+		// disk cache survives a torrent close or a server restart.
+		if path := p.releaseBuffers(); path != "" && removeFiles {
 			diskPaths = append(diskPaths, path)
 		}
 	}

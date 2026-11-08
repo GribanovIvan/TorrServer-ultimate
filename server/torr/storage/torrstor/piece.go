@@ -98,7 +98,9 @@ func (p *Piece) MarkComplete() error {
 	case p.dPiece != nil:
 		p.dPiece.mu.Lock()
 		p.Complete = true
+		p.dPiece.unverified = false
 		p.dPiece.mu.Unlock()
+		p.cache.markVerified(p.Id, true)
 	default:
 		p.Complete = true
 	}
@@ -121,9 +123,14 @@ func (p *Piece) MarkNotComplete() error {
 
 func (p *Piece) Completion() storage.Completion {
 	_, complete, _ := p.snapshotStats()
+	// Ok=false asks the client to hash-check a piece left by an earlier run.
+	ok := true
+	if !complete && p.dPiece != nil && p.dPiece.needsCheck() {
+		ok = false
+	}
 	return storage.Completion{
 		Complete: complete,
-		Ok:       true,
+		Ok:       ok,
 	}
 }
 

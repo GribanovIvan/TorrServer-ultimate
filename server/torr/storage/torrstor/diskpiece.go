@@ -17,6 +17,8 @@ type DiskPiece struct {
 	name     string
 	file     *os.File
 	writable bool
+	// unverified: full-size file from an earlier run, waiting for a hash check.
+	unverified bool
 
 	mu sync.RWMutex
 }
@@ -151,7 +153,9 @@ func (p *DiskPiece) releaseState() string {
 	name := p.name
 	p.piece.Size = 0
 	p.piece.Complete = false
+	p.unverified = false
 	p.piece.cache.notePieceEmpty(p.piece.Id)
+	p.piece.cache.markVerified(p.piece.Id, false)
 	return name
 }
 
@@ -161,6 +165,13 @@ func closeAndRemove(name string) {
 		_ = f.(*os.File).Close()
 	}
 	_ = os.Remove(name)
+}
+
+// needsCheck reports a full-size piece from an earlier run not yet hash-checked.
+func (p *DiskPiece) needsCheck() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.unverified
 }
 
 func (p *DiskPiece) Release() {
