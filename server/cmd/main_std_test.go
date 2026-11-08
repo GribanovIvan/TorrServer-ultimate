@@ -55,19 +55,18 @@ func TestFeatureArgs(t *testing.T) {
 		"--https-only",
 		"--force-https",
 		"--http-media",
-		"--pprof",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if params.SslPort != "9443" || !params.Ssl || !params.HTTPSOnly || !params.ForceHTTPS || !params.HTTPMedia || !params.Pprof {
+	if params.SslPort != "9443" || !params.Ssl || !params.HTTPSOnly || !params.ForceHTTPS || !params.HTTPMedia {
 		t.Fatalf("%+v", params)
 	}
 }
 
 func TestRunRejectsBadHTTPSFlags(t *testing.T) {
 	dir := t.TempDir()
-	base := []string{"-k", "-a", "-r", "-d", dir, "-p", "1", "-t", dir, "-m", "1", "-4", "8.8.8.8", "-6", "::1", "--torrentaddr", "127.0.0.1:0", "--proxyurl", "socks5://127.0.0.1:1", "--proxymode", "nope", "--pprof"}
+	base := []string{"-k", "-a", "-r", "-d", dir, "-p", "1", "-t", dir, "-m", "1", "-4", "8.8.8.8", "-6", "::1", "--torrentaddr", "127.0.0.1:0", "--proxyurl", "socks5://127.0.0.1:1", "--proxymode", "nope"}
 	if code := run(append(append([]string{}, base...), "--force-https")); code != 1 {
 		t.Fatal("force-https", code)
 	}

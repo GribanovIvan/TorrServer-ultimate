@@ -8,14 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// telegramUser accepts a Telegram Mini App user (X-Telegram-Init-Data).
-func telegramUser(c *gin.Context) (string, bool) {
-	if initData := c.GetHeader("X-Telegram-Init-Data"); initData != "" {
-		return TryTelegramAuth(initData)
-	}
-	return "", false
-}
-
 // SPA XHR/fetch probes must not trigger the browser's native Basic dialog, so
 // the web UI can show its own login form. Third-party clients that already send
 // Authorization never hit this path.

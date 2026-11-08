@@ -315,13 +315,18 @@ func TestOfflineAPI(t *testing.T) {
 		t.Fatal("bad size")
 	}
 
+	// pprof is in the full profile only, and only with --pprof (set above).
+	pprofWant := http.StatusNotFound
+	if testPprof {
+		pprofWant = http.StatusOK
+	}
 	for _, p := range []string{
 		"/debug/pprof/", "/debug/pprof/cmdline", "/debug/pprof/symbol",
 		"/debug/pprof/allocs", "/debug/pprof/heap", "/debug/pprof/goroutine",
 		"/debug/pprof/mutex", "/debug/pprof/block", "/debug/pprof/threadcreate",
 	} {
-		if w := do(http.MethodGet, p, "", nil); w.Code != 200 {
-			t.Fatalf("%s %d", p, w.Code)
+		if w := do(http.MethodGet, p, "", nil); w.Code != pprofWant {
+			t.Fatalf("%s %d, want %d", p, w.Code, pprofWant)
 		}
 	}
 

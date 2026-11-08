@@ -84,7 +84,7 @@ func TestSettingsCallbackResetAndStorageView(t *testing.T) {
 		if err := settingsCallback(cb("\ffset|reset_def|1"), "reset_def|1"); err != nil {
 			t.Fatal(err)
 		}
-		if settings.BTsets.FriendlyName != "" || settings.BTsets.ConnectionsLimit != 25 {
+		if settings.BTsets.FriendlyName != "" || settings.BTsets.ConnectionsLimit != settings.DefaultConnectionsLimit {
 			t.Fatalf("not reset: FriendlyName=%q ConnectionsLimit=%d", settings.BTsets.FriendlyName, settings.BTsets.ConnectionsLimit)
 		}
 	})

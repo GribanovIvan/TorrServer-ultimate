@@ -252,13 +252,11 @@ func (t *Torrent) Preload(index int, size int64) {
 		offset += int64(n)
 		startRead.Store(offset)
 
-		// Shrink the window to what is left, in whole-piece steps only: SetNext
-		// and SetReadahead take the client lock and this loop runs per 32 KB.
-		if remain := readerStartEnd - offset; remain >= 0 && readahead-remain >= pieceLength {
-			readahead = remain
+		if ra, zone, ok := shrinkPreloadWindow(readahead, readerStartEnd-offset, pieceLength); ok {
+			readahead = ra
 			readerStart.SetNext(readahead)
 			readerStart.SetReadahead(readahead)
-			readerStart.SetZone(remain)
+			readerStart.SetZone(zone)
 		}
 		if n == 0 || err != nil {
 			if err != nil && err != io.EOF {
@@ -292,24 +290,6 @@ func (t *Torrent) Preload(index int, size int64) {
 			st.TotalPeers, "[ Seeds:",
 			st.ConnectedSeeders, "]")
 	}
-}
-
-// preloadWindow returns the in-flight readahead for a preload reader.
-//
-// A fixed pieceLength*4 pins the pipeline to four pieces regardless of link
-// speed or configured cache, so a bigger cache only makes the wait longer.
-// Sizing the window off the preload target lets it scale with CacheSize and
-// PreloadCache, while pieceLength*4 remains the floor for small caches. The
-// result is clamped to span (the bytes this reader will actually read).
-func preloadWindow(size, span, pieceLength int64) int64 {
-	ra := size / 4
-	if floor := pieceLength * 4; ra < floor {
-		ra = floor
-	}
-	if ra > span {
-		ra = span
-	}
-	return ra
 }
 
 // preloadSpans splits a preload into [0, head) and [tail, fileLen).

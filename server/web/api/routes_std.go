@@ -55,9 +55,7 @@ func setupFeatureRoutes(route gin.IRouter, authorized *gin.RouterGroup) {
 
 	authorized.GET("/runtime/status", runtimeStatus)
 
-	if sets.Args != nil && sets.Args.Pprof {
-		mountPprof(authorized)
-	}
+	setupFullRoutes(authorized)
 }
 
 // restartServices applies the settings now in effect to DLNA, Bonjour and the

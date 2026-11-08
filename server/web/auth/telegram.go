@@ -1,4 +1,4 @@
-//go:build !slim
+//go:build full
 
 package auth
 
@@ -12,9 +12,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"server/settings"
 	"server/tgbot/config"
 )
+
+// Telegram Mini App login is in the full profile only (telegram_none.go).
+
+// telegramUser accepts a Telegram Mini App user (X-Telegram-Init-Data).
+func telegramUser(c *gin.Context) (string, bool) {
+	if initData := c.GetHeader("X-Telegram-Init-Data"); initData != "" {
+		return TryTelegramAuth(initData)
+	}
+	return "", false
+}
 
 const telegramInitDataMaxAge = 24 * time.Hour
 

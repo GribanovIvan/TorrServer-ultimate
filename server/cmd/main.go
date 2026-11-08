@@ -25,20 +25,21 @@ import (
 )
 
 type args struct {
-	Port        string   `arg:"-p" help:"web server port (default 8090)"`
-	IPs         []string `arg:"-i,--ip,separate" help:"web server bind addr, or unix:/path/to.sock for a Unix socket (repeatable; default empty binds all interfaces)"`
-	Path        string   `arg:"-d" help:"database and config dir path"`
-	LogPath     string   `arg:"-l" help:"server log file path"`
-	WebLogPath  string   `arg:"-w" help:"web access log file path"`
-	RDB         bool     `arg:"-r" help:"start in read-only DB mode"`
-	HttpAuth    bool     `arg:"-a" help:"enable http auth on all requests"`
-	DontKill    bool     `arg:"-k" help:"don't kill server on signal"`
-	TorrentAddr string   `help:"Torrent client address, like 127.0.0.1:1337 (default :PeersListenPort)"`
-	PubIPv4     string   `arg:"-4" help:"set public IPv4 addr"`
-	PubIPv6     string   `arg:"-6" help:"set public IPv6 addr"`
-	MaxSize     string   `arg:"-m" help:"max allowed stream size (in Bytes)"`
-	ProxyURL    string   `help:"proxy URL for BitTorrent traffic (http, socks4, socks5, socks5h), e.g. socks5://user:password@127.0.0.1:8080"`
-	ProxyMode   string   `help:"proxy mode: tracker (only HTTP trackers, default), peers (only peer connections), or full (all traffic)"`
+	Port string `arg:"-p" help:"web server port (default 8090)"`
+	// bindArgs holds --ip (args_bind*.go): Unix sockets are in slim and full only.
+	bindArgs
+	Path        string `arg:"-d" help:"database and config dir path"`
+	LogPath     string `arg:"-l" help:"server log file path"`
+	WebLogPath  string `arg:"-w" help:"web access log file path"`
+	RDB         bool   `arg:"-r" help:"start in read-only DB mode"`
+	HttpAuth    bool   `arg:"-a" help:"enable http auth on all requests"`
+	DontKill    bool   `arg:"-k" help:"don't kill server on signal"`
+	TorrentAddr string `help:"Torrent client address, like 127.0.0.1:1337 (default :PeersListenPort)"`
+	PubIPv4     string `arg:"-4" help:"set public IPv4 addr"`
+	PubIPv6     string `arg:"-6" help:"set public IPv6 addr"`
+	MaxSize     string `arg:"-m" help:"max allowed stream size (in Bytes)"`
+	ProxyURL    string `help:"proxy URL for BitTorrent traffic (http, socks4, socks5, socks5h), e.g. socks5://user:password@127.0.0.1:8080"`
+	ProxyMode   string `help:"proxy mode: tracker (only HTTP trackers, default), peers (only peer connections), or full (all traffic)"`
 	// featureArgs holds the flags of the build profile (args_std.go, args_slim.go).
 	featureArgs
 }

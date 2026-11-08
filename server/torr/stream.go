@@ -90,8 +90,8 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		return err
 	}
 	// Already downloaded (e.g. by qBittorrent) in --downloaddir: serve from disk.
-	if local, ok := localDownloadPath(sets.DownloadDir, file.Path(), file.Length()); ok {
-		return t.serveDownloaded(resp, req, file, fileID, local, streamTimeout)
+	if served, err := t.streamDownloaded(fileID, file, req, resp, streamTimeout); served {
+		return err
 	}
 	// Create reader with context for timeout
 	reader := t.NewReader(file)

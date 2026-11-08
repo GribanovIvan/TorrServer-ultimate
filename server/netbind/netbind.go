@@ -3,24 +3,8 @@ package netbind
 import (
 	"fmt"
 	"net"
-	"os"
-	"strings"
 	"sync"
-	"time"
 )
-
-// unixPrefix marks a bind host as a Unix-domain socket path: unix:/run/ts.sock
-// (--ip unix:/run/ts.sock). Other hosts are TCP.
-const unixPrefix = "unix:"
-
-// IsUnix reports whether host names a Unix-domain socket.
-func IsUnix(host string) bool {
-	return strings.HasPrefix(host, unixPrefix)
-}
-
-func unixPath(host string) string {
-	return strings.TrimPrefix(host, unixPrefix)
-}
 
 // HasTCP reports whether binding hosts opens at least one TCP listener.
 // An empty list binds all interfaces, so it counts.
@@ -45,25 +29,6 @@ func TCPHosts(hosts []string) []string {
 		}
 	}
 	return out
-}
-
-// listenUnix binds a socket path, replacing a stale socket left by a crash.
-// A path with a live listener, or a non-socket file, is an error.
-func listenUnix(path string) (net.Listener, error) {
-	if path == "" {
-		return nil, fmt.Errorf("unix socket: empty path")
-	}
-	if fi, err := os.Lstat(path); err == nil {
-		if fi.Mode()&os.ModeSocket == 0 {
-			return nil, fmt.Errorf("%s exists and is not a socket", path)
-		}
-		if conn, err := net.DialTimeout("unix", path, time.Second); err == nil {
-			_ = conn.Close()
-			return nil, fmt.Errorf("%s: already in use", path)
-		}
-		_ = os.Remove(path)
-	}
-	return net.Listen("unix", path)
 }
 
 func listenHost(host, port string) (net.Listener, error) {
@@ -115,7 +80,7 @@ func CheckPort(hosts []string, port string) error {
 	return nil
 }
 
-// Listen binds TCP (or a Unix socket, see unixPrefix) on each host and returns a listener that accepts from all of them.
+// Listen binds TCP (or, in the slim and full profiles, a Unix socket: unix.go) on each host and returns a listener that accepts from all of them.
 func Listen(hosts []string, port string) (net.Listener, error) {
 	hosts = Normalize(hosts)
 	if len(hosts) == 1 {

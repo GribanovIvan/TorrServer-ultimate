@@ -12,7 +12,7 @@ func TestSetBTSetsAppliesFailsafes(t *testing.T) {
 	if BTsets != in {
 		t.Fatal("BTsets not replaced")
 	}
-	if in.CacheSize != 64<<20 || in.ConnectionsLimit != 25 || in.TorrentDisconnectTimeout != 30 {
+	if in.CacheSize != 64<<20 || in.ConnectionsLimit != DefaultConnectionsLimit || in.TorrentDisconnectTimeout != 30 {
 		t.Fatalf("defaults: cache=%d conns=%d timeout=%d", in.CacheSize, in.ConnectionsLimit, in.TorrentDisconnectTimeout)
 	}
 	if in.ReaderReadAHead != 5 || in.PreloadCache != 0 {

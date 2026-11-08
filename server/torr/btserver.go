@@ -178,28 +178,7 @@ func (bt *BTServer) configure() {
 		bt.config.Seed = true
 		bt.config.UploadRateLimiter = utils.Limit(settings.BTsets.UploadRateLimit * 1024)
 	}
-	// Default half-open dial cap (25) ramps slowly in big swarms; allow
-	// dialing up to the connection limit at once.
-	bt.config.HalfOpenConnsPerTorrent = settings.BTsets.ConnectionsLimit
-	// Tracker/DHT announcers go idle once the known-peer pool passes
-	// LowWater and resume only when it drains below it. Swarm address
-	// lists are mostly stale, so the pool burns to zero within a minute
-	// and then waits out the tracker interval with few connections.
-	// High LowWater keeps peer discovery running continuously; addresses
-	// are tiny, so a larger pool costs no meaningful RAM.
-	bt.config.TorrentPeersLowWater = 200
-	bt.config.TorrentPeersHighWater = 1000
-	// The accept limiter masks inbound IPs to /24, so one connected peer
-	// blocks every other peer from the same subnet for up to 15 minutes.
-	// Fast seeders (seedboxes) cluster in shared provider subnets, which
-	// is exactly the traffic this rejects; upstream later removed the
-	// limiter entirely.
-	bt.config.DisableAcceptRateLimiting = true
-	// Swarm addresses are mostly dead; a 20s dial timeout on each stale
-	// address stalls the hunt for live peers when few candidates remain
-	// (with a large pool the library already shrinks it towards the 3s
-	// minimum).
-	bt.config.NominalDialTimeout = 10 * time.Second
+	tuneClient(bt.config)
 	if settings.TorAddr != "" {
 		log.Println("Set listen addr", settings.TorAddr)
 		bt.config.SetListenAddr(settings.TorAddr)

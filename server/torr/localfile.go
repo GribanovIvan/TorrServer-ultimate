@@ -1,3 +1,5 @@
+//go:build full
+
 package torr
 
 import (
@@ -15,6 +17,16 @@ import (
 	mt "server/mimetype"
 	sets "server/settings"
 )
+
+// streamDownloaded serves the file from --downloaddir when it is there (full
+// profile only; localfile_none.go). served is false when the swarm has to.
+func (t *Torrent) streamDownloaded(fileID int, file *torrent.File, req *http.Request, resp http.ResponseWriter, streamTimeout int) (served bool, err error) {
+	local, ok := localDownloadPath(sets.DownloadDir, file.Path(), file.Length())
+	if !ok {
+		return false, nil
+	}
+	return true, t.serveDownloaded(resp, req, file, fileID, local, streamTimeout)
+}
 
 // localDownloadPath returns the file to serve from --downloaddir instead of the
 // swarm, when <dir>/<torrent file path> exists with the torrent file's exact size.

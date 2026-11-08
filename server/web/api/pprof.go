@@ -1,4 +1,4 @@
-//go:build !slim
+//go:build full
 
 package api
 
