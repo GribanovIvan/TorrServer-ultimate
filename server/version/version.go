@@ -6,7 +6,8 @@ import (
 )
 
 // Version is set at build time via -ldflags "-X server/version.Version=..." (GoReleaser {{.Version}}).
-// The number follows the NextGen base this branch is built on.
+// The number is the upstream MatriX release whose code the branch contains (MatriX.150: everything up to
+// it came in through lampac-nextgen, MatriX.150 itself only bumped the label), not the NextGen label.
 var Version = "Ultimate.150"
 
 // Full is Version with the build profile appended ("Ultimate.150-slim"); the
