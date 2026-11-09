@@ -36,10 +36,8 @@ func setupFeatureRoutes(route gin.IRouter, authorized *gin.RouterGroup) {
 
 	if sets.SearchWA {
 		route.GET("/torznab/search/*query", torznabSearch)
-		route.GET("/torznab/caps", torznabCaps)
 	} else {
 		authorized.GET("/torznab/search/*query", torznabSearch)
-		authorized.GET("/torznab/caps", torznabCaps)
 	}
 	// Storage settings endpoints
 	authorized.GET("/storage/settings", GetStorageSettings)
@@ -53,8 +51,7 @@ func setupFeatureRoutes(route gin.IRouter, authorized *gin.RouterGroup) {
 	authorized.GET("/ffp/status", ffprobeStatus)
 	authorized.GET("/ffp/:hash/:id", ffp)
 
-	authorized.GET("/runtime/status", runtimeStatus)
-
+	setupNewUIRoutes(route, authorized)
 	setupFullRoutes(route, authorized)
 }
 

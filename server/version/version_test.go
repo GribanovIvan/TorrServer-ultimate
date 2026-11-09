@@ -43,6 +43,9 @@ func TestFullCarriesProfile(t *testing.T) {
 	if Profile != "" {
 		want += "-" + Profile
 	}
+	if UI != "" {
+		want += "-" + UI
+	}
 	if got := Full(); got != want {
 		t.Fatalf("Full() = %q, want %q", got, want)
 	}

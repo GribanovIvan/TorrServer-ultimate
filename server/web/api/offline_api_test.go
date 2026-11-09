@@ -279,8 +279,15 @@ func TestOfflineAPI(t *testing.T) {
 	if w := do(http.MethodGet, "/torznab/search/show", "", nil); w.Code != 400 {
 		t.Fatal(w.Body)
 	}
-	if w := do(http.MethodGet, "/torznab/caps", "", nil); w.Code != 400 {
-		t.Fatal(w.Body)
+	// /torznab/caps and /runtime/status exist only with the NextGen UI (-tags newui).
+	newUICode := func(code int) int {
+		if newUIRoutes {
+			return code
+		}
+		return http.StatusNotFound
+	}
+	if w := do(http.MethodGet, "/torznab/caps", "", nil); w.Code != newUICode(400) {
+		t.Fatal(w.Code, w.Body)
 	}
 	if w := do(http.MethodPost, "/torznab/test", `{"host":"","key":""}`, nil); w.Code != 200 || !strings.Contains(w.Body.String(), "false") {
 		t.Fatalf("torznab test %d %s", w.Code, w.Body)
@@ -302,8 +309,8 @@ func TestOfflineAPI(t *testing.T) {
 			t.Fatalf("ffp %d %s", w.Code, w.Body)
 		}
 	}
-	if w := do(http.MethodGet, "/runtime/status", "", nil); w.Code != 200 {
-		t.Fatal(w.Body)
+	if w := do(http.MethodGet, "/runtime/status", "", nil); w.Code != newUICode(200) {
+		t.Fatal(w.Code, w.Body)
 	}
 	if w := do(http.MethodGet, "/download/0", "", nil); w.Code != 200 {
 		t.Fatal(w.Code)

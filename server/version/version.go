@@ -10,13 +10,18 @@ import (
 // it came in through lampac-nextgen, MatriX.150 itself only bumped the label), not the NextGen label.
 var Version = "Ultimate.150"
 
-// Full is Version with the build profile appended ("Ultimate.150-slim"); the
-// default profile has no suffix. It is what --version and the start log show.
+// Full is Version with the build profile and the web UI appended ("Ultimate.150-slim",
+// "Ultimate.150-full-newui"); the default profile with the classic UI has no suffix.
+// It is what --version and the start log show.
 func Full() string {
-	if Profile == "" {
-		return Version
+	v := Version
+	if Profile != "" {
+		v += "-" + Profile
 	}
-	return Version + "-" + Profile
+	if UI != "" {
+		v += "-" + UI
+	}
+	return v
 }
 
 func GetTorrentVersion() string {

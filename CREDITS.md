@@ -1,6 +1,6 @@
 # Звідки що взято
 
-Ця гілка (`ultimate`) поєднує корисне з кількох форків TorrServer, зберігаючи
+Цей репозиторій (гілка `master`) поєднує корисне з кількох форків TorrServer, зберігаючи
 авторство. Ліцензія та copyright-рядки — без змін (GPL-3.0, див. `LICENSE`).
 
 | Звідки | Що взято | Як |
@@ -47,10 +47,25 @@
 
 | Профіль | Збірка | Версія | Що це |
 | --- | --- | --- | --- |
-| типовий | `make ultimate` | `Ultimate.150` | Функції й типові значення офіційного MatriX.150 на виправленнях lampac |
-| slim | `make ultimate-slim` (`-tags slim`) | `Ultimate.150-slim` | Безголовий стрімер: API торентів, потоку, плейлистів, переглянутого й налаштувань, Basic-авторизація з `accs.db`, `--ip` і Unix-сокет, кеш у RAM |
+| типовий | `make ultimate` | `Ultimate.150` | Функції й типові значення офіційного MatriX.150 на виправленнях lampac, класичний вебінтерфейс MatriX |
+| slim | `make ultimate-slim` (`-tags slim`) | `Ultimate.150-slim` | Безголовий стрімер без вебінтерфейсу: API торентів, потоку, плейлистів, переглянутого й налаштувань, Basic-авторизація з `accs.db`, `--ip` і Unix-сокет, кеш у RAM |
 | full | `make ultimate-full` (`-tags full`) | `Ultimate.150-full` | Типовий плюс додатки форків (таблиця вище) |
+
+## Вебінтерфейс — вибір під час збірки
+
+| Тег | UI | Як входить | Збірка |
+| --- | --- | --- | --- |
+| без тегу | класичний MatriX.150 (`server/web/pages/template/classic/`, з апстріму 0c48c9ac) | як в апстрімі: сторінки за Basic-авторизацією, вікно пароля — браузерне (`WWW-Authenticate` завжди) | `make ultimate`, `make ultimate-full` |
+| `newui` | NextGen від lampac (`server/web/pages/template/pages/`, джерела — `web/`) | сторінки публічні, своя форма входу; запитам UI (JSON, XHR, CORS) — 401 без `WWW-Authenticate` | `make ultimate-newui`, `make ultimate-full-newui` |
+
+Лише з `newui` є `/torznab/caps` і `/runtime/status` — їх кличе тільки NextGen UI; в апстрімі їх немає.
+У `--version` новий UI видно як `-newui` (`Ultimate.150-full-newui`).
+
+У нашій копії класичного UI вирізано Firebase Analytics апстріму: його `index.html` на кожне відкриття
+сторінки вантажив `firebase-analytics.js` з gstatic.com і слав статистику в проєкт `torrserve` автора
+апстріму. JS самого UI Firebase не кличе (перевірено), тож інтерфейс без нього працює так само; ETag
+сторінки в `route_classic.go` перераховано. Google Fonts лишились, як в апстрімі (їх вантажить і NextGen UI).
 
 Номер версії — реліз апстріму, до якого включно є код (MatriX.150), а не мітка lampac (NextGen.148, не оновлена після злиття апстріму).
 
-`-tags "slim full"` не збирається. Теги `gst`, `nosqlite` поєднуються з будь-яким профілем.
+`-tags "slim full"` і `-tags "slim newui"` не збираються. Теги `gst`, `nosqlite` поєднуються з будь-яким профілем.
